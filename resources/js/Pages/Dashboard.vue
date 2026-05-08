@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, router, useForm, usePoll } from '@inertiajs/vue3';
-import { computed, nextTick, ref, watch } from 'vue';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 
@@ -30,16 +30,44 @@ const props = defineProps({
         type: Array,
         default: () => ['small'],
     },
+    filter: {
+        type: String,
+        default: 'recent',
+    },
+    activeFolderId: {
+        type: [Number, null],
+        default: null,
+    },
 });
 
 const creatingFolderFor = ref(undefined);
 const folderNameInput = ref(null);
 
+const LAST_MODEL_KEY = 'escribelo_last_model';
+const LAST_LANGUAGE_KEY = 'escribelo_last_language';
+
+const initialModel = (() => {
+    const saved = localStorage.getItem(LAST_MODEL_KEY);
+    return saved && props.availableModels.includes(saved) ? saved : 'small';
+})();
+const initialLanguage = localStorage.getItem(LAST_LANGUAGE_KEY) || 'es';
+
 const form = useForm({
     paths: [],
     transcription_folder_id: '',
-    model: 'small',
-    language: 'es',
+    model: initialModel,
+    language: initialLanguage,
+});
+
+watch(() => form.model, (value) => {
+    if (value) {
+        localStorage.setItem(LAST_MODEL_KEY, value);
+    }
+});
+watch(() => form.language, (value) => {
+    if (value) {
+        localStorage.setItem(LAST_LANGUAGE_KEY, value);
+    }
 });
 
 const selectedFiles = ref([]);
@@ -211,11 +239,26 @@ const hasInFlight = computed(() =>
     props.files.some((f) => f.status === 'queued' || f.status === 'processing'),
 );
 
-const { start: startPoll, stop: stopPoll } = usePoll(
-    2000,
-    { only: ['files', 'stats'] },
-    { autoStart: false },
-);
+let pollTimer = null;
+
+const stopPoll = () => {
+    if (pollTimer !== null) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+    }
+};
+
+const startPoll = () => {
+    stopPoll();
+    pollTimer = setInterval(() => {
+        router.reload({
+            only: ['files', 'stats'],
+            preserveUrl: true,
+            preserveScroll: true,
+            preserveState: true,
+        });
+    }, 2000);
+};
 
 watch(
     hasInFlight,
@@ -228,6 +271,8 @@ watch(
     },
     { immediate: true },
 );
+
+onBeforeUnmount(stopPoll);
 
 const submit = () => {
     form.post(route('transcriptions.fromPaths'), {
@@ -381,6 +426,56 @@ const formatDate = (value) => {
                     </section>
 
                     <section class="space-y-2">
+                        <h3 class="px-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+                            Accesos directos
+                        </h3>
+                        <nav class="rounded-md border border-gray-200 bg-white p-1 shadow-sm">
+                            <Link
+                                :href="route('dashboard')"
+                                class="flex items-center gap-2 rounded px-2 py-2 text-sm transition"
+                                :class="filter === 'recent' ? 'bg-gray-100 font-semibold text-gray-900' : 'text-gray-700 hover:bg-gray-50'"
+                            >
+                                <svg
+                                    class="h-4 w-4"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M4 6h4v4H4zM10 6h4v4h-4zM16 6h4v4h-4zM4 14h4v4H4zM10 14h4v4h-4zM16 14h4v4h-4z"
+                                    />
+                                </svg>
+                                Recientes
+                            </Link>
+                            <Link
+                                :href="route('dashboard', { filter: 'unfiled' })"
+                                class="flex items-center gap-2 rounded px-2 py-2 text-sm transition"
+                                :class="filter === 'unfiled' ? 'bg-gray-100 font-semibold text-gray-900' : 'text-gray-700 hover:bg-gray-50'"
+                            >
+                                <svg
+                                    class="h-4 w-4"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M4 6h16M4 12h16M4 18h16"
+                                    />
+                                </svg>
+                                Sin ordenar
+                            </Link>
+                        </nav>
+                    </section>
+
+                    <section class="space-y-2">
                         <div class="flex items-center justify-between px-2">
                             <h3 class="text-xs font-bold uppercase tracking-wide text-gray-500">
                                 Carpetas
@@ -457,14 +552,23 @@ const formatDate = (value) => {
                                 :key="folder.id"
                             >
                                 <div
-                                    class="group flex items-center justify-between rounded px-2 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
-                                    :class="{ 'bg-blue-100 ring-2 ring-blue-400': dragOverFolderId === folder.id }"
+                                    class="group flex items-center justify-between rounded text-sm transition"
+                                    :class="[
+                                        activeFolderId === folder.id ? 'bg-gray-100 font-semibold text-gray-900' : 'text-gray-700 hover:bg-gray-50',
+                                        { 'ring-2 ring-blue-400 bg-blue-100': dragOverFolderId === folder.id },
+                                    ]"
                                     @dragover="onFolderDragOver($event, folder.id)"
                                     @dragleave="onFolderDragLeave(folder.id)"
                                     @drop="onFolderDrop($event, folder.id)"
                                 >
-                                    <span class="truncate font-medium">{{ folder.name }}</span>
-                                    <div class="flex items-center gap-1">
+                                    <Link
+                                        :href="route('dashboard', { folder: folder.id })"
+                                        class="flex flex-1 items-center gap-2 truncate px-2 py-2"
+                                    >
+                                        <span aria-hidden="true">📁</span>
+                                        <span class="truncate">{{ folder.name }}</span>
+                                    </Link>
+                                    <div class="flex items-center gap-1 pr-2">
                                         <button
                                             type="button"
                                             class="flex h-5 w-5 items-center justify-center rounded-full text-gray-400 opacity-0 transition hover:bg-gray-200 hover:text-gray-700 focus:opacity-100 group-hover:opacity-100"
@@ -530,14 +634,22 @@ const formatDate = (value) => {
                                 <div
                                     v-for="child in folder.children"
                                     :key="child.id"
-                                    class="ml-4 flex items-center justify-between border-l-2 border-gray-100 px-2 py-1.5 text-sm text-gray-600 transition hover:bg-gray-50"
-                                    :class="{ 'bg-blue-100 !border-blue-400 ring-2 ring-blue-400': dragOverFolderId === child.id }"
+                                    class="ml-4 flex items-center justify-between border-l-2 border-gray-100 text-sm transition"
+                                    :class="[
+                                        activeFolderId === child.id ? 'bg-gray-100 font-semibold text-gray-900' : 'text-gray-600 hover:bg-gray-50',
+                                        { '!border-blue-400 ring-2 ring-blue-400 bg-blue-100': dragOverFolderId === child.id },
+                                    ]"
                                     @dragover="onFolderDragOver($event, child.id)"
                                     @dragleave="onFolderDragLeave(child.id)"
                                     @drop="onFolderDrop($event, child.id)"
                                 >
-                                    <span class="truncate">↳ {{ child.name }}</span>
-                                    <span class="text-xs text-gray-400">{{ child.files_count }}</span>
+                                    <Link
+                                        :href="route('dashboard', { folder: child.id })"
+                                        class="flex flex-1 items-center gap-1 truncate px-2 py-1.5"
+                                    >
+                                        <span class="truncate">↳ {{ child.name }}</span>
+                                    </Link>
+                                    <span class="pr-2 text-xs text-gray-400">{{ child.files_count }}</span>
                                 </div>
                             </template>
                         </div>

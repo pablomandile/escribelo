@@ -4,17 +4,29 @@ import sys
 from pathlib import Path
 
 
-def emit_progress(value):
-    value = max(0, min(100, int(value)))
-    sys.stdout.write(json.dumps({"progress": value}) + "\n")
+def emit_event(payload):
+    sys.stdout.write(json.dumps(payload) + "\n")
     sys.stdout.flush()
 
 
+def emit_progress(value):
+    value = max(0, min(100, int(value)))
+    emit_event({"progress": value})
+
+
+def emit_phase(phase, **extra):
+    emit_event({"phase": phase, **extra})
+
+
 def transcribe_with_faster_whisper(args):
+    emit_phase("loading_engine", engine="faster-whisper", model=args.model)
     from faster_whisper import WhisperModel
 
+    emit_phase("loading_model", model=args.model, device=args.device)
     model = WhisperModel(args.model, device=args.device, compute_type=args.compute_type)
     emit_progress(1)
+
+    emit_phase("starting_transcription", file=args.file, language=args.language)
     segments_iter, info = model.transcribe(
         args.file,
         language=args.language,
@@ -22,6 +34,13 @@ def transcribe_with_faster_whisper(args):
     )
 
     total_duration = getattr(info, "duration", None) or 0
+    detected_language = getattr(info, "language", None)
+    emit_phase(
+        "audio_analyzed",
+        duration_seconds=total_duration,
+        detected_language=detected_language,
+    )
+
     normalized_segments = []
     last_progress = 1
 
@@ -32,11 +51,12 @@ def transcribe_with_faster_whisper(args):
             "text": segment.text.strip(),
         })
         if total_duration > 0:
-            progress = int((segment.end / total_duration) * 99)
+            progress = max(1, int((segment.end / total_duration) * 99))
             if progress > last_progress:
                 emit_progress(progress)
                 last_progress = progress
 
+    emit_phase("finalizing", segments=len(normalized_segments))
     emit_progress(100)
 
     return {
@@ -50,9 +70,13 @@ def transcribe_with_faster_whisper(args):
 
 
 def transcribe_with_openai_whisper(args):
+    emit_phase("loading_engine", engine="openai-whisper", model=args.model)
     import whisper
 
+    emit_phase("loading_model", model=args.model)
     model = whisper.load_model(args.model)
+
+    emit_phase("starting_transcription", file=args.file, language=args.language, note="openai-whisper does not emit intermediate progress")
     result = model.transcribe(
         args.file,
         language=args.language,

@@ -17,7 +17,7 @@ Route::get('/', function () {
     ]);
 });
 
-Route::get('/dashboard', [TranscriptionFileController::class, 'index'])
+Route::get('/escribelo', [TranscriptionFileController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 

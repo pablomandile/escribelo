@@ -58,7 +58,9 @@ class ProcessTranscriptionFile implements ShouldQueue
         ], null, (float) config('transcription.timeout', 3600));
 
         $stdoutBuffer = '';
-        $process->run(function ($type, $buffer) use (&$stdoutBuffer, $file): void {
+        $process->start();
+        $file->forceFill(['worker_pid' => $process->getPid()])->saveQuietly();
+        $process->wait(function ($type, $buffer) use (&$stdoutBuffer, $file): void {
             if ($type !== Process::OUT) {
                 return;
             }
@@ -70,15 +72,36 @@ class ProcessTranscriptionFile implements ShouldQueue
                     continue;
                 }
                 $payload = json_decode($line, true);
-                if (is_array($payload) && isset($payload['progress'])) {
+                if (! is_array($payload)) {
+                    continue;
+                }
+                if (isset($payload['progress'])) {
                     $progress = max(0, min(100, (int) $payload['progress']));
                     $file->forceFill(['progress' => $progress])->saveQuietly();
+                    Log::info('Whisper progress', [
+                        'transcription_file_id' => $file->id,
+                        'progress' => $progress,
+                    ]);
+                }
+                if (isset($payload['phase'])) {
+                    Log::info('Whisper phase: '.$payload['phase'], [
+                        'transcription_file_id' => $file->id,
+                    ] + $payload);
                 }
             }
         });
 
         if (! $process->isSuccessful()) {
             $errorOutput = trim($process->getErrorOutput() ?: $process->getOutput()) ?: 'Whisper failed.';
+
+            if ($file->fresh() === null) {
+                Log::info('Whisper process cancelled (transcription deleted)', [
+                    'transcription_file_id' => $file->id,
+                    'audio_path' => $audioPath,
+                ]);
+                return;
+            }
+
             Log::error('Whisper process failed', [
                 'transcription_file_id' => $file->id,
                 'audio_path' => $audioPath,
@@ -118,6 +141,7 @@ class ProcessTranscriptionFile implements ShouldQueue
             $file->update([
                 'status' => 'completed',
                 'progress' => 100,
+                'worker_pid' => null,
                 'language' => $payload['language'] ?? $file->language,
                 'duration_seconds' => $payload['duration'] ?? $this->durationFromSegments($segments),
                 'processed_at' => now(),

@@ -19,13 +19,31 @@ class TranscriptionFileController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
+        $folderId = $request->query('folder');
+        $folderId = is_numeric($folderId) ? (int) $folderId : null;
+        $filter = $request->query('filter') === 'unfiled' ? 'unfiled' : 'recent';
 
-        $files = TranscriptionFile::query()
+        if ($folderId !== null) {
+            $folderExists = TranscriptionFolder::whereBelongsTo($user)->whereKey($folderId)->exists();
+            if (! $folderExists) {
+                $folderId = null;
+            }
+        }
+
+        $filesQuery = TranscriptionFile::query()
             ->with(['folder.parent', 'transcription'])
             ->whereBelongsTo($user)
-            ->latest()
-            ->limit(50)
-            ->get()
+            ->latest();
+
+        if ($folderId !== null) {
+            $filesQuery->where('transcription_folder_id', $folderId);
+        } elseif ($filter === 'unfiled') {
+            $filesQuery->whereNull('transcription_folder_id');
+        } else {
+            $filesQuery->limit(50);
+        }
+
+        $files = $filesQuery->get()
             ->map(fn (TranscriptionFile $file) => $this->serializeFile($file));
 
         $folders = TranscriptionFolder::query()
@@ -59,6 +77,8 @@ class TranscriptionFileController extends Controller
             'files' => $files,
             'folders' => $folders,
             'stats' => $stats,
+            'filter' => $folderId !== null ? 'folder' : $filter,
+            'activeFolderId' => $folderId,
             'availableModels' => ['small', 'medium', 'large-v3'],
         ]);
     }
@@ -160,6 +180,10 @@ class TranscriptionFileController extends Controller
     {
         abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
 
+        if ($transcriptionFile->worker_pid) {
+            $this->killWorkerProcess((int) $transcriptionFile->worker_pid);
+        }
+
         $storedPath = (string) $transcriptionFile->stored_path;
         $isAbsolute = preg_match('/^([A-Za-z]:[\\\\\/]|\/)/', $storedPath) === 1;
 
@@ -172,6 +196,28 @@ class TranscriptionFileController extends Controller
         $transcriptionFile->delete();
 
         return back()->with('status', 'Transcripción eliminada.');
+    }
+
+    private function killWorkerProcess(int $pid): void
+    {
+        if ($pid <= 0) {
+            return;
+        }
+
+        try {
+            if (PHP_OS_FAMILY === 'Windows') {
+                $kill = new \Symfony\Component\Process\Process(['taskkill', '/F', '/T', '/PID', (string) $pid]);
+                $kill->run();
+            } elseif (function_exists('posix_kill')) {
+                @posix_kill($pid, defined('SIGKILL') ? SIGKILL : 9);
+            }
+            \Illuminate\Support\Facades\Log::info('Whisper worker killed on delete', ['pid' => $pid]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to kill whisper worker', [
+                'pid' => $pid,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function streamAudio(Request $request, TranscriptionFile $transcriptionFile): BinaryFileResponse
