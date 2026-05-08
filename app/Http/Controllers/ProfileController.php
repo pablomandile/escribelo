@@ -18,10 +18,42 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        $user = $request->user();
+
         return Inertia::render('Profile/Edit', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
+            'mustVerifyEmail' => $user instanceof MustVerifyEmail,
             'status' => session('status'),
+            'settings' => [
+                'backup_on_replace' => (bool) $user->getSetting('backup_on_replace'),
+                'transcription_provider' => $user->getSetting('transcription_provider') ?? 'local',
+                'summary_provider' => $user->getSetting('summary_provider') ?? 'groq',
+            ],
+            'providerInfo' => [
+                'groq_configured' => (bool) config('services.groq.key'),
+                'ollama_model' => config('services.ollama.summary_model'),
+                'ollama_base_url' => config('services.ollama.base_url'),
+            ],
         ]);
+    }
+
+    public function updateSettings(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'backup_on_replace' => ['required', 'boolean'],
+            'transcription_provider' => ['required', 'string', 'in:local,groq'],
+            'summary_provider' => ['required', 'string', 'in:groq,ollama'],
+        ]);
+
+        $user = $request->user();
+        $settings = array_merge($user->settings ?? [], [
+            'backup_on_replace' => (bool) $validated['backup_on_replace'],
+            'transcription_provider' => $validated['transcription_provider'],
+            'summary_provider' => $validated['summary_provider'],
+        ]);
+
+        $user->forceFill(['settings' => $settings])->save();
+
+        return Redirect::route('profile.edit')->with('status', 'Configuración guardada.');
     }
 
     /**

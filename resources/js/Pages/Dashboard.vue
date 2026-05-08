@@ -38,6 +38,10 @@ const props = defineProps({
         type: [Number, null],
         default: null,
     },
+    activeFolder: {
+        type: [Object, null],
+        default: null,
+    },
 });
 
 const creatingFolderFor = ref(undefined);
@@ -57,6 +61,7 @@ const form = useForm({
     transcription_folder_id: '',
     model: initialModel,
     language: initialLanguage,
+    clean_audio: false,
 });
 
 watch(() => form.model, (value) => {
@@ -240,6 +245,7 @@ const hasInFlight = computed(() =>
 );
 
 let pollTimer = null;
+let lastNavigationAt = 0;
 
 const stopPoll = () => {
     if (pollTimer !== null) {
@@ -251,6 +257,11 @@ const stopPoll = () => {
 const startPoll = () => {
     stopPoll();
     pollTimer = setInterval(() => {
+        // Skip ticks that fall within the settling window of a real navigation
+        // so an in-flight poll can't stomp the just-navigated content.
+        if (Date.now() - lastNavigationAt < 1500) {
+            return;
+        }
         router.reload({
             only: ['files', 'stats'],
             preserveUrl: true,
@@ -259,6 +270,23 @@ const startPoll = () => {
         });
     }, 2000);
 };
+
+const removeBeforeHook = router.on('before', (event) => {
+    const visit = event.detail?.visit;
+    if (! visit) {
+        return;
+    }
+    // Real navigations don't preserveUrl; our polls do. Cancel any in-flight
+    // poll and arm a short skip window.
+    if (visit.preserveUrl !== true) {
+        lastNavigationAt = Date.now();
+        try {
+            router.cancel();
+        } catch (e) {
+            // best-effort cancel
+        }
+    }
+});
 
 watch(
     hasInFlight,
@@ -272,7 +300,12 @@ watch(
     { immediate: true },
 );
 
-onBeforeUnmount(stopPoll);
+onBeforeUnmount(() => {
+    stopPoll();
+    if (typeof removeBeforeHook === 'function') {
+        removeBeforeHook();
+    }
+});
 
 const submit = () => {
     form.post(route('transcriptions.fromPaths'), {
@@ -282,6 +315,79 @@ const submit = () => {
             selectedFiles.value = [];
         },
     });
+};
+
+const addExistingOpen = ref(false);
+const addExistingLoading = ref(false);
+const addExistingError = ref(null);
+const unfiledFiles = ref([]);
+const selectedToMove = ref(new Set());
+
+const openAddExisting = async () => {
+    addExistingOpen.value = true;
+    selectedToMove.value = new Set();
+    addExistingError.value = null;
+    addExistingLoading.value = true;
+    try {
+        const response = await fetch(route('transcriptions.unfiled'), {
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin',
+        });
+        if (! response.ok) {
+            addExistingError.value = 'No se pudo cargar el listado.';
+            return;
+        }
+        const data = await response.json();
+        unfiledFiles.value = data.files || [];
+    } catch (err) {
+        addExistingError.value = err.message || 'Error al cargar el listado.';
+    } finally {
+        addExistingLoading.value = false;
+    }
+};
+
+const closeAddExisting = () => {
+    addExistingOpen.value = false;
+    selectedToMove.value = new Set();
+};
+
+const toggleMoveSelection = (id) => {
+    const next = new Set(selectedToMove.value);
+    if (next.has(id)) {
+        next.delete(id);
+    } else {
+        next.add(id);
+    }
+    selectedToMove.value = next;
+};
+
+const toggleAllMoveSelection = () => {
+    if (selectedToMove.value.size === unfiledFiles.value.length) {
+        selectedToMove.value = new Set();
+    } else {
+        selectedToMove.value = new Set(unfiledFiles.value.map((f) => f.id));
+    }
+};
+
+const finalizeMove = () => {
+    if (! props.activeFolder || selectedToMove.value.size === 0) {
+        return;
+    }
+    router.post(
+        route('transcriptions.moveBulk'),
+        {
+            transcription_folder_id: props.activeFolder.id,
+            ids: Array.from(selectedToMove.value),
+        },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                addExistingOpen.value = false;
+                selectedToMove.value = new Set();
+            },
+            onError: () => toast.error('No se pudieron mover los archivos.'),
+        },
+    );
 };
 
 const deleteTranscription = async (file) => {
@@ -564,6 +670,7 @@ const formatDate = (value) => {
                                     <Link
                                         :href="route('dashboard', { folder: folder.id })"
                                         class="flex flex-1 items-center gap-2 truncate px-2 py-2"
+                                        :title="folder.name"
                                     >
                                         <span aria-hidden="true">📁</span>
                                         <span class="truncate">{{ folder.name }}</span>
@@ -646,6 +753,7 @@ const formatDate = (value) => {
                                     <Link
                                         :href="route('dashboard', { folder: child.id })"
                                         class="flex flex-1 items-center gap-1 truncate px-2 py-1.5"
+                                        :title="child.name"
                                     >
                                         <span class="truncate">↳ {{ child.name }}</span>
                                     </Link>
@@ -730,6 +838,18 @@ const formatDate = (value) => {
                                 Enviar
                             </button>
                         </div>
+
+                        <label class="mt-3 flex cursor-pointer select-none items-center gap-2 text-sm text-gray-700">
+                            <input
+                                v-model="form.clean_audio"
+                                type="checkbox"
+                                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            >
+                            <span>Reducir ruido antes de transcribir</span>
+                            <span class="text-xs text-gray-500">
+                                (DeepFilterNet · agrega ~2-3× tiempo de proceso)
+                            </span>
+                        </label>
 
                         <ul
                             v-if="selectedFiles.length"
@@ -858,6 +978,163 @@ const formatDate = (value) => {
                                         Listo
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                        <div class="min-w-0">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                Estás viendo
+                            </p>
+                            <p class="mt-0.5 truncate text-base font-semibold text-gray-900">
+                                <template v-if="filter === 'folder' && activeFolder">
+                                    📁
+                                    <template v-if="activeFolder.parent">
+                                        <span class="font-normal text-gray-500">{{ activeFolder.parent.name }} /</span>
+                                    </template>
+                                    {{ activeFolder.name }}
+                                </template>
+                                <template v-else-if="filter === 'unfiled'">
+                                    Sin ordenar
+                                </template>
+                                <template v-else>
+                                    Recientes
+                                </template>
+                                <span class="ml-2 text-sm font-normal text-gray-500">
+                                    ({{ files.length }})
+                                </span>
+                            </p>
+                        </div>
+                        <button
+                            v-if="filter === 'folder' && activeFolder"
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            @click="openAddExisting"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                stroke-width="2.5"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M12 4.5v15m7.5-7.5h-15"
+                                />
+                            </svg>
+                            Agregar
+                        </button>
+                    </div>
+
+                    <div
+                        v-if="addExistingOpen"
+                        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                        @click.self="closeAddExisting"
+                    >
+                        <div class="flex h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+                            <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-3">
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-gray-800">
+                                        Agregar transcripciones a "{{ activeFolder?.name }}"
+                                    </p>
+                                    <p class="text-xs text-gray-500">
+                                        Listado de transcripciones sin carpeta. Marcá las que querés mover.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="text-gray-400 hover:text-gray-700"
+                                    aria-label="Cerrar"
+                                    @click="closeAddExisting"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div class="flex items-center justify-between border-b border-gray-100 px-5 py-2 text-xs text-gray-600">
+                                <button
+                                    v-if="unfiledFiles.length > 0"
+                                    type="button"
+                                    class="rounded border border-gray-200 px-2 py-1 hover:bg-gray-50"
+                                    @click="toggleAllMoveSelection"
+                                >
+                                    {{ selectedToMove.size === unfiledFiles.length ? 'Desmarcar todos' : 'Seleccionar todos' }}
+                                </button>
+                                <span>
+                                    {{ selectedToMove.size }} de {{ unfiledFiles.length }} seleccionado(s)
+                                </span>
+                            </div>
+
+                            <div class="flex-1 overflow-y-auto">
+                                <p
+                                    v-if="addExistingLoading"
+                                    class="p-6 text-center text-sm text-gray-500"
+                                >
+                                    Cargando...
+                                </p>
+                                <p
+                                    v-else-if="addExistingError"
+                                    class="p-6 text-center text-sm text-rose-600"
+                                >
+                                    {{ addExistingError }}
+                                </p>
+                                <p
+                                    v-else-if="unfiledFiles.length === 0"
+                                    class="p-6 text-center text-sm text-gray-500"
+                                >
+                                    No hay nada que ordenar!
+                                </p>
+                                <ul
+                                    v-else
+                                    class="divide-y divide-gray-100"
+                                >
+                                    <li
+                                        v-for="f in unfiledFiles"
+                                        :key="f.id"
+                                        class="flex cursor-pointer items-center gap-3 px-5 py-3 text-sm hover:bg-gray-50"
+                                        :class="{ 'bg-blue-50': selectedToMove.has(f.id) }"
+                                        @click="toggleMoveSelection(f.id)"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            :checked="selectedToMove.has(f.id)"
+                                            @click.stop="toggleMoveSelection(f.id)"
+                                        >
+                                        <div class="min-w-0 flex-1">
+                                            <p class="truncate font-medium text-gray-800">
+                                                {{ f.original_name }}
+                                            </p>
+                                            <p class="text-xs text-gray-500">
+                                                {{ formatDate(f.created_at) }}
+                                                <span class="mx-1">·</span>
+                                                {{ statusLabel(f.status) }}
+                                            </p>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="flex items-center justify-end gap-2 border-t border-gray-200 px-5 py-3">
+                                <button
+                                    type="button"
+                                    class="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                                    @click="closeAddExisting"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    class="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                                    :disabled="selectedToMove.size === 0"
+                                    @click="finalizeMove"
+                                >
+                                    Finalizar
+                                </button>
                             </div>
                         </div>
                     </div>

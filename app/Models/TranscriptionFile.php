@@ -21,6 +21,8 @@ class TranscriptionFile extends Model
         'size',
         'duration_seconds',
         'language',
+        'clean_audio',
+        'cleaned_audio_path',
         'model',
         'status',
         'progress',
@@ -33,6 +35,7 @@ class TranscriptionFile extends Model
     {
         return [
             'duration_seconds' => 'float',
+            'clean_audio' => 'boolean',
             'processed_at' => 'datetime',
         ];
     }

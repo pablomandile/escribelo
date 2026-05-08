@@ -73,7 +73,10 @@ defineProps({
                     >
                         <span class="text-3xl" aria-hidden="true">📁</span>
                         <div class="min-w-0 flex-1">
-                            <p class="truncate font-semibold text-gray-900 group-hover:text-blue-700">
+                            <p
+                                class="truncate font-semibold text-gray-900 group-hover:text-blue-700"
+                                :title="folder.name"
+                            >
                                 {{ folder.name }}
                             </p>
                             <p class="mt-1 text-xs text-gray-500">

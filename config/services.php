@@ -35,4 +35,19 @@ return [
         ],
     ],
 
+    'groq' => [
+        'key' => env('GROQ_APIKEY'),
+        'base_url' => env('GROQ_BASE_URL', 'https://api.groq.com/openai/v1'),
+        'model' => env('GROQ_MODEL', 'llama-3.1-8b-instant'),
+        'free_tier' => [
+            'requests_per_day' => (int) env('GROQ_FREE_RPD', 14400),
+            'tokens_per_day' => (int) env('GROQ_FREE_TPD', 500000),
+        ],
+    ],
+
+    'ollama' => [
+        'base_url' => env('OLLAMA_BASE_URL', 'http://localhost:11434'),
+        'summary_model' => env('OLLAMA_SUMMARY_MODEL', 'gemma3:12b'),
+    ],
+
 ];

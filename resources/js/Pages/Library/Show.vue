@@ -93,7 +93,10 @@ const statusClass = (status) => ({
                         >
                             <span class="text-2xl" aria-hidden="true">📂</span>
                             <div class="min-w-0">
-                                <p class="truncate font-semibold text-gray-900 group-hover:text-blue-700">
+                                <p
+                                    class="truncate font-semibold text-gray-900 group-hover:text-blue-700"
+                                    :title="child.name"
+                                >
                                     {{ child.name }}
                                 </p>
                                 <p class="mt-0.5 text-xs text-gray-500">

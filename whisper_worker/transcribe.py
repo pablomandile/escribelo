@@ -1,6 +1,8 @@
 import argparse
 import json
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -119,24 +121,72 @@ def parse_args():
     parser.add_argument("--language")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--compute-type", default="default")
+    parser.add_argument("--clean-audio", action="store_true",
+                        help="Run DeepFilterNet noise reduction before transcribing.")
+    parser.add_argument("--cleaned-output",
+                        help="If --clean-audio, also encode the cleaned audio to this MP3 path (192kbps).")
 
     return parser.parse_args()
 
 
+def denoise_with_deepfilternet(input_path, mp3_output=None):
+    """Denoise audio with DeepFilterNet. Returns the temp WAV path used for transcription.
+    If mp3_output is provided, also encode an MP3 copy to that path."""
+    import subprocess
+
+    emit_phase("denoise_loading", engine="deepfilternet")
+    from df.enhance import enhance, init_df, load_audio, save_audio
+
+    model, df_state, _ = init_df()
+    emit_phase("denoise_processing", file=input_path, sample_rate=df_state.sr())
+
+    audio, _ = load_audio(input_path, sr=df_state.sr())
+    enhanced = enhance(model, df_state, audio)
+
+    temp_dir = tempfile.mkdtemp(prefix="escribelo_denoise_")
+    wav_path = os.path.join(temp_dir, "cleaned.wav")
+    save_audio(wav_path, enhanced, df_state.sr())
+
+    if mp3_output:
+        os.makedirs(os.path.dirname(mp3_output), exist_ok=True)
+        emit_phase("denoise_encoding_mp3", output=mp3_output)
+        subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "error", "-i", wav_path,
+             "-codec:a", "libmp3lame", "-b:a", "192k", mp3_output],
+            check=True,
+        )
+
+    emit_phase("denoise_done", wav=wav_path, mp3=mp3_output)
+    return wav_path
+
+
 def main():
     args = parse_args()
+    cleaned_path = None
 
     try:
-        payload = transcribe_with_faster_whisper(args)
-    except ModuleNotFoundError:
-        payload = transcribe_with_openai_whisper(args)
+        if args.clean_audio:
+            cleaned_path = denoise_with_deepfilternet(args.file, mp3_output=args.cleaned_output)
+            args.file = cleaned_path
 
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+        try:
+            payload = transcribe_with_faster_whisper(args)
+        except ModuleNotFoundError:
+            payload = transcribe_with_openai_whisper(args)
+
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    finally:
+        if cleaned_path:
+            try:
+                os.remove(cleaned_path)
+                os.rmdir(os.path.dirname(cleaned_path))
+            except OSError:
+                pass
 
 
 if __name__ == "__main__":

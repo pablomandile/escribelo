@@ -23,10 +23,22 @@ class TranscriptionFileController extends Controller
         $folderId = is_numeric($folderId) ? (int) $folderId : null;
         $filter = $request->query('filter') === 'unfiled' ? 'unfiled' : 'recent';
 
+        $activeFolder = null;
         if ($folderId !== null) {
-            $folderExists = TranscriptionFolder::whereBelongsTo($user)->whereKey($folderId)->exists();
-            if (! $folderExists) {
+            $folder = TranscriptionFolder::whereBelongsTo($user)
+                ->with('parent:id,name')
+                ->find($folderId);
+            if (! $folder) {
                 $folderId = null;
+            } else {
+                $activeFolder = [
+                    'id' => $folder->id,
+                    'name' => $folder->name,
+                    'parent' => $folder->parent ? [
+                        'id' => $folder->parent->id,
+                        'name' => $folder->parent->name,
+                    ] : null,
+                ];
             }
         }
 
@@ -79,6 +91,7 @@ class TranscriptionFileController extends Controller
             'stats' => $stats,
             'filter' => $folderId !== null ? 'folder' : $filter,
             'activeFolderId' => $folderId,
+            'activeFolder' => $activeFolder,
             'availableModels' => ['small', 'medium', 'large-v3'],
         ]);
     }
@@ -133,6 +146,7 @@ class TranscriptionFileController extends Controller
             'transcription_folder_id' => ['nullable', 'integer', 'exists:transcription_folders,id'],
             'model' => ['required', 'string', 'in:tiny,base,small,medium,large,large-v2,large-v3,turbo'],
             'language' => ['nullable', 'string', 'max:12'],
+            'clean_audio' => ['nullable', 'boolean'],
         ]);
 
         $user = $request->user();
@@ -166,6 +180,7 @@ class TranscriptionFileController extends Controller
                 'mime_type' => $mime,
                 'size' => @filesize($real) ?: 0,
                 'language' => $validated['language'] ?: null,
+                'clean_audio' => (bool) ($validated['clean_audio'] ?? false),
                 'model' => $validated['model'],
                 'status' => 'queued',
             ]);
@@ -192,6 +207,10 @@ class TranscriptionFileController extends Controller
         }
 
         Storage::disk('local')->delete('transcripts/'.$transcriptionFile->id.'.json');
+
+        if ($transcriptionFile->cleaned_audio_path) {
+            Storage::disk('local')->delete($transcriptionFile->cleaned_audio_path);
+        }
 
         $transcriptionFile->delete();
 
@@ -233,6 +252,180 @@ class TranscriptionFileController extends Controller
         ]);
     }
 
+    public function streamCleanedAudio(Request $request, TranscriptionFile $transcriptionFile): BinaryFileResponse
+    {
+        abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
+        abort_unless($transcriptionFile->cleaned_audio_path, 404);
+
+        $path = Storage::disk('local')->path($transcriptionFile->cleaned_audio_path);
+        abort_unless(is_file($path) && is_readable($path), 404);
+
+        return response()->file($path, ['Content-Type' => 'audio/mpeg']);
+    }
+
+    public function replaceWithCleaned(Request $request, TranscriptionFile $transcriptionFile): RedirectResponse
+    {
+        abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
+        abort_unless($transcriptionFile->cleaned_audio_path, 404);
+
+        $cleanedAbsolute = Storage::disk('local')->path($transcriptionFile->cleaned_audio_path);
+        abort_unless(is_file($cleanedAbsolute), 404, 'Audio limpio no encontrado en disco.');
+
+        $originalPath = $transcriptionFile->absolutePath();
+        $originalDir = dirname($originalPath);
+        $originalExt = strtolower(pathinfo($originalPath, PATHINFO_EXTENSION) ?: 'mp3');
+        $originalBase = pathinfo($originalPath, PATHINFO_FILENAME);
+
+        if ($request->user()->getSetting('backup_on_replace')) {
+            $backupPath = $originalDir.DIRECTORY_SEPARATOR.$originalBase.'_original.'.$originalExt;
+            $backupPath = $this->uniquePath($backupPath);
+            if (! @copy($originalPath, $backupPath)) {
+                return back()->with('error', 'No se pudo crear el backup. Reemplazo abortado.');
+            }
+        }
+
+        if (! $this->encodeAudioWithFfmpeg($cleanedAbsolute, $originalPath, $originalExt)) {
+            return back()->with('error', 'No se pudo reemplazar el audio original.');
+        }
+
+        @unlink($cleanedAbsolute);
+        $transcriptionFile->update([
+            'cleaned_audio_path' => null,
+            'size' => @filesize($originalPath) ?: $transcriptionFile->size,
+        ]);
+
+        return back()->with('status', 'Audio original reemplazado con la versión limpia.');
+    }
+
+    public function saveCleanedAsNew(Request $request, TranscriptionFile $transcriptionFile): RedirectResponse
+    {
+        abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
+        abort_unless($transcriptionFile->cleaned_audio_path, 404);
+
+        $cleanedAbsolute = Storage::disk('local')->path($transcriptionFile->cleaned_audio_path);
+        abort_unless(is_file($cleanedAbsolute), 404, 'Audio limpio no encontrado en disco.');
+
+        $originalPath = $transcriptionFile->absolutePath();
+        $originalDir = dirname($originalPath);
+        $originalExt = strtolower(pathinfo($originalPath, PATHINFO_EXTENSION) ?: 'mp3');
+        $originalBase = pathinfo($originalPath, PATHINFO_FILENAME);
+
+        $newPath = $originalDir.DIRECTORY_SEPARATOR.$originalBase.'_NR.'.$originalExt;
+        $newPath = $this->uniquePath($newPath);
+
+        if (! $this->encodeAudioWithFfmpeg($cleanedAbsolute, $newPath, $originalExt)) {
+            return back()->with('error', 'No se pudo guardar la copia limpia.');
+        }
+
+        @unlink($cleanedAbsolute);
+        $transcriptionFile->update(['cleaned_audio_path' => null]);
+
+        return back()->with('status', 'Copia "_NR" guardada en la misma carpeta del original.');
+    }
+
+    public function discardCleaned(Request $request, TranscriptionFile $transcriptionFile): RedirectResponse
+    {
+        abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
+
+        if ($transcriptionFile->cleaned_audio_path) {
+            Storage::disk('local')->delete($transcriptionFile->cleaned_audio_path);
+            $transcriptionFile->update(['cleaned_audio_path' => null]);
+        }
+
+        return back()->with('status', 'Audio limpio descartado.');
+    }
+
+    private function uniquePath(string $path): string
+    {
+        if (! file_exists($path)) {
+            return $path;
+        }
+        $dir = dirname($path);
+        $ext = pathinfo($path, PATHINFO_EXTENSION);
+        $base = pathinfo($path, PATHINFO_FILENAME);
+        $i = 2;
+        while (true) {
+            $candidate = $dir.DIRECTORY_SEPARATOR.$base.'_'.$i.($ext ? '.'.$ext : '');
+            if (! file_exists($candidate)) {
+                return $candidate;
+            }
+            $i++;
+        }
+    }
+
+    private function encodeAudioWithFfmpeg(string $input, string $output, string $extension): bool
+    {
+        $codecArgs = match ($extension) {
+            'mp3' => ['-codec:a', 'libmp3lame', '-b:a', '192k'],
+            'm4a', 'aac', 'mp4' => ['-codec:a', 'aac', '-b:a', '192k'],
+            'ogg', 'oga' => ['-codec:a', 'libvorbis', '-q:a', '5'],
+            'flac' => ['-codec:a', 'flac'],
+            'wav' => ['-codec:a', 'pcm_s16le'],
+            'webm' => ['-codec:a', 'libopus', '-b:a', '128k'],
+            default => ['-codec:a', 'libmp3lame', '-b:a', '192k'],
+        };
+
+        $process = new \Symfony\Component\Process\Process([
+            'ffmpeg', '-y', '-loglevel', 'error', '-i', $input,
+            ...$codecArgs,
+            $output,
+        ]);
+        $process->setTimeout(600);
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            \Illuminate\Support\Facades\Log::error('ffmpeg encode failed', [
+                'input' => $input,
+                'output' => $output,
+                'extension' => $extension,
+                'stderr' => $process->getErrorOutput(),
+            ]);
+            return false;
+        }
+
+        return true;
+    }
+
+    public function listUnfiled(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $user = $request->user();
+
+        $files = TranscriptionFile::query()
+            ->whereBelongsTo($user)
+            ->whereNull('transcription_folder_id')
+            ->latest()
+            ->get(['id', 'original_name', 'duration_seconds', 'created_at', 'status'])
+            ->map(fn (TranscriptionFile $f) => [
+                'id' => $f->id,
+                'original_name' => $f->original_name,
+                'duration_seconds' => $f->duration_seconds,
+                'status' => $f->status,
+                'created_at' => $f->created_at?->toIso8601String(),
+            ]);
+
+        return response()->json(['files' => $files]);
+    }
+
+    public function moveBulkToFolder(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'transcription_folder_id' => ['required', 'integer', 'exists:transcription_folders,id'],
+            'ids' => ['required', 'array', 'min:1', 'max:200'],
+            'ids.*' => ['integer'],
+        ]);
+
+        TranscriptionFolder::whereBelongsTo($user)->findOrFail($validated['transcription_folder_id']);
+
+        $updated = TranscriptionFile::query()
+            ->whereBelongsTo($user)
+            ->whereIn('id', $validated['ids'])
+            ->update(['transcription_folder_id' => $validated['transcription_folder_id']]);
+
+        return back()->with('status', $updated.' archivo(s) movidos a la carpeta.');
+    }
+
     public function updateFolder(Request $request, TranscriptionFile $transcriptionFile): RedirectResponse
     {
         abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
@@ -259,9 +452,52 @@ class TranscriptionFileController extends Controller
 
         $transcriptionFile->load(['folder', 'transcription.segments']);
 
+        $user = $request->user();
+        $usage = \App\Models\GroqUsage::todayFor($user->id);
+        $limits = config('services.groq.free_tier');
+        $summaryProvider = $user->getSetting('summary_provider') ?? 'groq';
+
         return Inertia::render('Transcriptions/Show', [
             'file' => $this->serializeFile($transcriptionFile, includeSegments: true),
+            'summaryProvider' => $summaryProvider,
+            'groqUsage' => [
+                'requests_count' => (int) $usage->requests_count,
+                'tokens_used' => (int) $usage->tokens_used,
+                'limits' => [
+                    'requests_per_day' => (int) $limits['requests_per_day'],
+                    'tokens_per_day' => (int) $limits['tokens_per_day'],
+                ],
+                'configured' => (bool) config('services.groq.key'),
+            ],
+            'ollamaConfig' => [
+                'model' => config('services.ollama.summary_model'),
+                'base_url' => config('services.ollama.base_url'),
+            ],
         ]);
+    }
+
+    public function summarize(Request $request, TranscriptionFile $transcriptionFile): RedirectResponse
+    {
+        abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
+
+        $transcription = $transcriptionFile->transcription;
+        if (! $transcription || empty($transcription->text)) {
+            return back()->withErrors(['summary' => 'La transcripción aún no tiene texto disponible.']);
+        }
+
+        $provider = $request->user()->getSetting('summary_provider') ?? 'groq';
+        if ($provider === 'groq' && ! config('services.groq.key')) {
+            return back()->withErrors(['summary' => 'Falta configurar GROQ_APIKEY en el servidor.']);
+        }
+
+        $transcription->update([
+            'summary_status' => 'queued',
+            'summary_metadata' => array_merge($transcription->summary_metadata ?? [], ['error' => null]),
+        ]);
+
+        \App\Jobs\SummarizeTranscription::dispatch($transcription);
+
+        return back()->with('status', 'Generando resumen…');
     }
 
     private function serializeFile(TranscriptionFile $file, bool $includeSegments = false): array
@@ -276,6 +512,7 @@ class TranscriptionFileController extends Controller
             'model' => $file->model,
             'status' => $file->status,
             'progress' => (int) $file->progress,
+            'has_cleaned_audio' => (bool) $file->cleaned_audio_path,
             'error_message' => $file->error_message,
             'processed_at' => $file->processed_at?->toIso8601String(),
             'created_at' => $file->created_at?->toIso8601String(),
@@ -291,6 +528,15 @@ class TranscriptionFileController extends Controller
                 'id' => $file->transcription->id,
                 'text' => $file->transcription->text,
                 'metadata' => $file->transcription->metadata,
+                'summary' => $file->transcription->summary,
+                'key_points' => is_array($file->transcription->summary_metadata ?? null)
+                    ? ($file->transcription->summary_metadata['key_points'] ?? [])
+                    : [],
+                'summary_status' => $file->transcription->summary_status ?? 'idle',
+                'summary_error' => is_array($file->transcription->summary_metadata ?? null)
+                    ? ($file->transcription->summary_metadata['error'] ?? null)
+                    : null,
+                'summary_generated_at' => $file->transcription->summary_generated_at?->toIso8601String(),
                 'segments' => $includeSegments
                     ? $file->transcription->segments->map(fn ($segment) => [
                         'id' => $segment->id,

@@ -43,6 +43,12 @@ class ProcessTranscriptionFile implements ShouldQueue
 
         Storage::disk('local')->makeDirectory('transcripts');
 
+        $cleanedRelativePath = 'cleaned/'.$file->id.'.mp3';
+        $cleanedAbsolutePath = Storage::disk('local')->path($cleanedRelativePath);
+        if ($file->clean_audio) {
+            Storage::disk('local')->makeDirectory('cleaned');
+        }
+
         $process = new Process([
             config('transcription.python', 'python'),
             base_path('whisper_worker/transcribe.py'),
@@ -53,6 +59,7 @@ class ProcessTranscriptionFile implements ShouldQueue
             '--model',
             $file->model ?: config('transcription.model', 'small'),
             ...($file->language ? ['--language', $file->language] : []),
+            ...($file->clean_audio ? ['--clean-audio', '--cleaned-output', $cleanedAbsolutePath] : []),
         ], base_path(), [
             'PYTHONIOENCODING' => 'utf-8',
         ], null, (float) config('transcription.timeout', 3600));
@@ -138,10 +145,15 @@ class ProcessTranscriptionFile implements ShouldQueue
                 ]);
             }
 
+            $cleanedSavedPath = $file->clean_audio && file_exists($cleanedAbsolutePath)
+                ? $cleanedRelativePath
+                : null;
+
             $file->update([
                 'status' => 'completed',
                 'progress' => 100,
                 'worker_pid' => null,
+                'cleaned_audio_path' => $cleanedSavedPath,
                 'language' => $payload['language'] ?? $file->language,
                 'duration_seconds' => $payload['duration'] ?? $this->durationFromSegments($segments),
                 'processed_at' => now(),

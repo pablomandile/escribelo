@@ -1,19 +1,139 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { useConfirm } from '@/composables/useConfirm';
+import { useToast } from '@/composables/useToast';
+
+const { open: openConfirm } = useConfirm();
+const toast = useToast();
 
 const segmentsOpen = ref(false);
+const transcriptionOpen = ref(true);
 
 const props = defineProps({
     file: {
         type: Object,
         required: true,
     },
+    groqUsage: {
+        type: Object,
+        default: () => ({
+            requests_count: 0,
+            tokens_used: 0,
+            limits: { requests_per_day: 14400, tokens_per_day: 500000 },
+            configured: false,
+        }),
+    },
+    summaryProvider: {
+        type: String,
+        default: 'groq',
+    },
+    ollamaConfig: {
+        type: Object,
+        default: () => ({ model: 'gemma3:12b', base_url: 'http://localhost:11434' }),
+    },
 });
+
+const summaryStatus = computed(() => props.file.transcription?.summary_status ?? 'idle');
+const hasSummary = computed(() => !! props.file.transcription?.summary);
+
+const requestsPct = computed(() => {
+    const limit = props.groqUsage?.limits?.requests_per_day ?? 1;
+    return Math.min(100, Math.round((props.groqUsage.requests_count / limit) * 100));
+});
+const tokensPct = computed(() => {
+    const limit = props.groqUsage?.limits?.tokens_per_day ?? 1;
+    return Math.min(100, Math.round((props.groqUsage.tokens_used / limit) * 100));
+});
+const usagePct = computed(() => Math.max(requestsPct.value, tokensPct.value));
+
+const generateSummary = () => {
+    router.post(route('transcriptions.summary', props.file.id), {}, {
+        preserveScroll: true,
+        onError: () => toast.error('No se pudo iniciar la generación del resumen.'),
+    });
+};
+
+let summaryPollTimer = null;
+const startSummaryPoll = () => {
+    if (summaryPollTimer) return;
+    summaryPollTimer = setInterval(() => {
+        router.reload({
+            only: ['file', 'groqUsage'],
+            preserveUrl: true,
+            preserveScroll: true,
+            preserveState: true,
+        });
+    }, 2500);
+};
+const stopSummaryPoll = () => {
+    if (summaryPollTimer) {
+        clearInterval(summaryPollTimer);
+        summaryPollTimer = null;
+    }
+};
+
+watch(summaryStatus, (status) => {
+    if (status === 'queued' || status === 'processing') {
+        startSummaryPoll();
+    } else {
+        stopSummaryPoll();
+    }
+}, { immediate: true });
+
+onBeforeUnmount(stopSummaryPoll);
 
 const audioRef = ref(null);
 const currentTime = ref(0);
+const audioSource = ref(props.file.has_cleaned_audio ? 'cleaned' : 'original');
+
+const audioSrc = computed(() =>
+    audioSource.value === 'cleaned' && props.file.has_cleaned_audio
+        ? route('transcriptions.audio.cleaned', props.file.id)
+        : route('transcriptions.audio', props.file.id),
+);
+
+watch(audioSrc, () => {
+    currentTime.value = 0;
+});
+
+const replaceOriginal = async () => {
+    const ok = await openConfirm({
+        title: 'Reemplazar audio original',
+        message: 'Esto sobreescribe el archivo original en tu biblioteca con la versión limpia. Si tu configuración tiene activado "backup", se guardará una copia con sufijo "_original".',
+        confirmText: 'Reemplazar',
+        cancelText: 'Cancelar',
+        danger: true,
+    });
+    if (! ok) return;
+    router.post(route('transcriptions.cleaned.replace', props.file.id), {}, {
+        preserveScroll: true,
+        onError: () => toast.error('No se pudo reemplazar el original.'),
+    });
+};
+
+const saveAsNew = () => {
+    router.post(route('transcriptions.cleaned.saveAsNew', props.file.id), {}, {
+        preserveScroll: true,
+        onError: () => toast.error('No se pudo guardar la copia.'),
+    });
+};
+
+const discardCleaned = async () => {
+    const ok = await openConfirm({
+        title: 'Descartar audio limpio',
+        message: 'El archivo de audio limpio se eliminará. Vas a poder volver a generarlo si querés re-transcribiendo el original.',
+        confirmText: 'Descartar',
+        cancelText: 'Cancelar',
+        danger: true,
+    });
+    if (! ok) return;
+    router.delete(route('transcriptions.cleaned.discard', props.file.id), {
+        preserveScroll: true,
+        onError: () => toast.error('No se pudo descartar.'),
+    });
+};
 
 const segments = computed(() => props.file.transcription?.segments ?? []);
 
@@ -134,34 +254,248 @@ const statusLabel = (status) => ({
                 </section>
 
                 <section class="rounded-md border border-gray-200 bg-white p-5 shadow-sm">
-                    <h3 class="mb-3 text-base font-semibold text-gray-900">
-                        Reproducir audio
-                    </h3>
+                    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+                        <h3 class="text-base font-semibold text-gray-900">
+                            Reproducir audio
+                        </h3>
+                        <div
+                            v-if="file.has_cleaned_audio"
+                            class="inline-flex rounded-md border border-gray-200 bg-gray-50 p-0.5 text-xs"
+                            role="tablist"
+                            aria-label="Fuente de audio"
+                        >
+                            <button
+                                type="button"
+                                class="rounded px-3 py-1 transition"
+                                :class="audioSource === 'original' ? 'bg-white font-semibold text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'"
+                                role="tab"
+                                :aria-selected="audioSource === 'original'"
+                                @click="audioSource = 'original'"
+                            >
+                                Original
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded px-3 py-1 transition"
+                                :class="audioSource === 'cleaned' ? 'bg-yellow-100 font-semibold text-amber-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'"
+                                role="tab"
+                                :aria-selected="audioSource === 'cleaned'"
+                                @click="audioSource = 'cleaned'"
+                            >
+                                ✨ Con reducción de ruido
+                            </button>
+                        </div>
+                    </div>
                     <audio
                         ref="audioRef"
                         controls
                         preload="metadata"
                         class="w-full"
-                        :src="route('transcriptions.audio', file.id)"
+                        :src="audioSrc"
                         @timeupdate="onTimeUpdate"
                     >
                         Tu navegador no soporta la reproducción de audio.
                     </audio>
+
+                    <div
+                        v-if="file.has_cleaned_audio"
+                        class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3"
+                    >
+                        <p class="text-sm font-semibold text-amber-900">
+                            Tenés un audio limpio listo
+                        </p>
+                        <p class="mt-1 text-xs text-amber-800">
+                            Compará usando el toggle de arriba y elegí qué hacer:
+                        </p>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                class="inline-flex items-center rounded-md bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700"
+                                @click="replaceOriginal"
+                            >
+                                Reemplazar original
+                            </button>
+                            <button
+                                type="button"
+                                class="inline-flex items-center rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                                @click="saveAsNew"
+                            >
+                                Guardar como copia "_NR"
+                            </button>
+                            <button
+                                type="button"
+                                class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                                @click="discardCleaned"
+                            >
+                                Descartar
+                            </button>
+                        </div>
+                    </div>
                 </section>
 
                 <section class="rounded-md border border-gray-200 bg-white shadow-sm">
-                    <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-                        <h3 class="text-base font-semibold text-gray-900">
-                            Transcripción
-                        </h3>
-                        <p
-                            v-if="segments.length"
-                            class="text-xs text-gray-500"
-                        >
-                            Hacé clic en cualquier parte para reproducir desde ahí
-                        </p>
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-5 py-4">
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">
+                                Resumen
+                            </h3>
+                            <p class="mt-0.5 text-xs text-gray-500">
+                                <template v-if="summaryProvider === 'ollama'">
+                                    🏠 Ollama local · <code class="rounded bg-gray-100 px-1 py-0.5">{{ ollamaConfig.model }}</code>
+                                </template>
+                                <template v-else>
+                                    ☁️ Groq · <code class="rounded bg-gray-100 px-1 py-0.5">llama-3.1-8b-instant</code>
+                                </template>
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div
+                                v-if="summaryProvider === 'groq' && groqUsage.configured"
+                                class="flex flex-col text-right"
+                                :title="`Tokens hoy: ${groqUsage.tokens_used.toLocaleString()} / ${groqUsage.limits.tokens_per_day.toLocaleString()} · Requests hoy: ${groqUsage.requests_count} / ${groqUsage.limits.requests_per_day}`"
+                            >
+                                <span class="text-[10px] uppercase tracking-wider text-gray-500">
+                                    Free tier hoy
+                                </span>
+                                <div class="mt-0.5 flex items-center gap-2">
+                                    <div class="h-1.5 w-24 overflow-hidden rounded-full bg-gray-200">
+                                        <div
+                                            class="h-full rounded-full transition-all"
+                                            :class="usagePct < 80 ? 'bg-emerald-500' : usagePct < 95 ? 'bg-amber-500' : 'bg-rose-500'"
+                                            :style="{ width: `${usagePct}%` }"
+                                        />
+                                    </div>
+                                    <span class="text-xs font-medium tabular-nums text-gray-600">
+                                        {{ usagePct }}%
+                                    </span>
+                                </div>
+                            </div>
+                            <button
+                                v-if="props.file.transcription?.text"
+                                type="button"
+                                class="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                :disabled="summaryStatus === 'queued' || summaryStatus === 'processing' || (summaryProvider === 'groq' && ! groqUsage.configured)"
+                                @click="generateSummary"
+                            >
+                                <svg
+                                    v-if="summaryStatus === 'queued' || summaryStatus === 'processing'"
+                                    class="h-4 w-4 animate-spin"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                                </svg>
+                                <span v-if="summaryStatus === 'queued'">En cola...</span>
+                                <span v-else-if="summaryStatus === 'processing'">Resumiendo...</span>
+                                <span v-else-if="hasSummary">Regenerar resumen</span>
+                                <span v-else>Resumir</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="p-5">
+                        <p
+                            v-if="summaryProvider === 'groq' && ! groqUsage.configured"
+                            class="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+                        >
+                            Falta configurar <code>GROQ_APIKEY</code> en el servidor para poder generar resúmenes con Groq.
+                            Cambialo a Ollama desde <a :href="route('profile.edit')" class="font-semibold underline">Configuración</a>.
+                        </p>
+                        <p
+                            v-else-if="summaryStatus === 'failed'"
+                            class="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"
+                        >
+                            {{ props.file.transcription?.summary_error || 'No se pudo generar el resumen.' }}
+                        </p>
+                        <p
+                            v-else-if="! hasSummary && summaryStatus === 'idle'"
+                            class="text-sm text-gray-500"
+                        >
+                            Aún no hay resumen. Hacé clic en "Resumir" para generar uno con Groq.
+                        </p>
+                        <div
+                            v-else-if="hasSummary"
+                            class="space-y-6"
+                        >
+                            <div class="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50/60 p-4">
+                                <span class="text-2xl leading-none" aria-hidden="true">💡</span>
+                                <p class="whitespace-pre-wrap text-[17px] leading-8 text-gray-800">
+                                    {{ props.file.transcription.summary }}
+                                </p>
+                            </div>
+
+                            <div v-if="props.file.transcription.key_points?.length">
+                                <h4 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-700">
+                                    <span aria-hidden="true">🎯</span>
+                                    Puntos principales
+                                    <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
+                                        {{ props.file.transcription.key_points.length }}
+                                    </span>
+                                </h4>
+                                <ul class="mt-3 space-y-2">
+                                    <li
+                                        v-for="(point, i) in props.file.transcription.key_points"
+                                        :key="i"
+                                        class="flex items-start gap-3 rounded-lg border border-gray-100 bg-gradient-to-r from-blue-50/40 to-transparent p-3 transition hover:border-blue-200 hover:from-blue-50"
+                                    >
+                                        <span
+                                            class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white"
+                                            aria-hidden="true"
+                                        >
+                                            {{ i + 1 }}
+                                        </span>
+                                        <span class="flex-1 text-base leading-7 text-gray-800">
+                                            {{ point }}
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
+                    <button
+                        type="button"
+                        class="flex w-full items-center justify-between gap-3 border-b border-gray-200 px-5 py-4 text-left transition hover:bg-gray-50"
+                        :class="{ '!border-transparent': !transcriptionOpen }"
+                        :aria-expanded="transcriptionOpen"
+                        aria-controls="transcription-body"
+                        @click="transcriptionOpen = !transcriptionOpen"
+                    >
+                        <span class="flex items-center gap-3">
+                            <h3 class="text-base font-semibold text-gray-900">
+                                Transcripción
+                            </h3>
+                            <span
+                                v-if="segments.length && transcriptionOpen"
+                                class="text-xs font-normal text-gray-500"
+                            >
+                                Hacé clic en cualquier parte para reproducir desde ahí
+                            </span>
+                        </span>
+                        <svg
+                            class="h-5 w-5 shrink-0 text-gray-500 transition-transform duration-200"
+                            :class="{ 'rotate-180': transcriptionOpen }"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+                            />
+                        </svg>
+                    </button>
+                    <div
+                        v-show="transcriptionOpen"
+                        id="transcription-body"
+                        class="p-5"
+                    >
                         <p
                             v-if="!file.transcription?.text"
                             class="text-sm text-gray-500"

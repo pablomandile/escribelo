@@ -15,12 +15,18 @@ class Transcription extends Model
         'transcription_file_id',
         'text',
         'metadata',
+        'summary',
+        'summary_metadata',
+        'summary_status',
+        'summary_generated_at',
     ];
 
     protected function casts(): array
     {
         return [
             'metadata' => 'array',
+            'summary_metadata' => 'array',
+            'summary_generated_at' => 'datetime',
         ];
     }
 
