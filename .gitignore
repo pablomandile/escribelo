@@ -13,6 +13,8 @@
 /.vscode
 /.zed
 /auth.json
+__pycache__/
+*.pyc
 /node_modules
 /public/build
 /public/fonts-manifest.dev.json
