@@ -229,6 +229,7 @@ class TranscriptionFileController extends Controller
             'language' => $file->language,
             'model' => $file->model,
             'status' => $file->status,
+            'progress' => (int) $file->progress,
             'error_message' => $file->error_message,
             'processed_at' => $file->processed_at?->toIso8601String(),
             'created_at' => $file->created_at?->toIso8601String(),

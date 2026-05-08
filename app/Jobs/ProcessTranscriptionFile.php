@@ -7,6 +7,7 @@ use App\Models\TranscriptionFile;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -32,6 +33,7 @@ class ProcessTranscriptionFile implements ShouldQueue
 
         $file->update([
             'status' => 'processing',
+            'progress' => 0,
             'error_message' => null,
         ]);
 
@@ -55,10 +57,36 @@ class ProcessTranscriptionFile implements ShouldQueue
             'PYTHONIOENCODING' => 'utf-8',
         ], null, (float) config('transcription.timeout', 3600));
 
-        $process->run();
+        $stdoutBuffer = '';
+        $process->run(function ($type, $buffer) use (&$stdoutBuffer, $file): void {
+            if ($type !== Process::OUT) {
+                return;
+            }
+            $stdoutBuffer .= $buffer;
+            while (($newlinePos = strpos($stdoutBuffer, "\n")) !== false) {
+                $line = trim(substr($stdoutBuffer, 0, $newlinePos));
+                $stdoutBuffer = substr($stdoutBuffer, $newlinePos + 1);
+                if ($line === '' || $line[0] !== '{') {
+                    continue;
+                }
+                $payload = json_decode($line, true);
+                if (is_array($payload) && isset($payload['progress'])) {
+                    $progress = max(0, min(100, (int) $payload['progress']));
+                    $file->forceFill(['progress' => $progress])->saveQuietly();
+                }
+            }
+        });
 
         if (! $process->isSuccessful()) {
-            throw new \RuntimeException(trim($process->getErrorOutput() ?: $process->getOutput()) ?: 'Whisper failed.');
+            $errorOutput = trim($process->getErrorOutput() ?: $process->getOutput()) ?: 'Whisper failed.';
+            Log::error('Whisper process failed', [
+                'transcription_file_id' => $file->id,
+                'audio_path' => $audioPath,
+                'model' => $file->model,
+                'exit_code' => $process->getExitCode(),
+                'error_output' => $errorOutput,
+            ]);
+            throw new \RuntimeException($errorOutput);
         }
 
         $payload = json_decode(file_get_contents($outputPath), true, flags: JSON_THROW_ON_ERROR);
@@ -89,6 +117,7 @@ class ProcessTranscriptionFile implements ShouldQueue
 
             $file->update([
                 'status' => 'completed',
+                'progress' => 100,
                 'language' => $payload['language'] ?? $file->language,
                 'duration_seconds' => $payload['duration'] ?? $this->durationFromSegments($segments),
                 'processed_at' => now(),
@@ -99,9 +128,18 @@ class ProcessTranscriptionFile implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
+        $message = $exception?->getMessage();
+
+        Log::error('Transcription job failed', [
+            'transcription_file_id' => $this->transcriptionFile->id,
+            'message' => $message,
+            'exception' => $exception ? get_class($exception) : null,
+            'trace' => $exception?->getTraceAsString(),
+        ]);
+
         $this->transcriptionFile->fresh()?->update([
             'status' => 'failed',
-            'error_message' => $exception?->getMessage(),
+            'error_message' => $message,
         ]);
     }
 

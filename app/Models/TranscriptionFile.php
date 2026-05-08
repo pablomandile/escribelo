@@ -23,6 +23,7 @@ class TranscriptionFile extends Model
         'language',
         'model',
         'status',
+        'progress',
         'error_message',
         'processed_at',
     ];

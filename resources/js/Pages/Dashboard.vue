@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { computed, nextTick, ref } from 'vue';
+import { Head, Link, router, useForm, usePoll } from '@inertiajs/vue3';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 
@@ -206,6 +206,28 @@ const onFolderDrop = (event, folderId) => {
 };
 
 const hasFiles = computed(() => props.files.length > 0);
+
+const hasInFlight = computed(() =>
+    props.files.some((f) => f.status === 'queued' || f.status === 'processing'),
+);
+
+const { start: startPoll, stop: stopPoll } = usePoll(
+    2000,
+    { only: ['files', 'stats'] },
+    { autoStart: false },
+);
+
+watch(
+    hasInFlight,
+    (active) => {
+        if (active) {
+            startPoll();
+        } else {
+            stopPoll();
+        }
+    },
+    { immediate: true },
+);
 
 const submit = () => {
     form.post(route('transcriptions.fromPaths'), {
@@ -804,12 +826,28 @@ const formatDate = (value) => {
                                             {{ file.model }}
                                         </td>
                                         <td class="whitespace-nowrap px-5 py-4">
-                                            <span
-                                                class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
-                                                :class="statusClass(file.status)"
-                                            >
-                                                {{ statusLabel(file.status) }}
-                                            </span>
+                                            <div class="flex flex-col gap-1.5">
+                                                <span
+                                                    class="inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold"
+                                                    :class="statusClass(file.status)"
+                                                >
+                                                    {{ statusLabel(file.status) }}
+                                                </span>
+                                                <div
+                                                    v-if="file.status === 'queued' || file.status === 'processing'"
+                                                    class="flex items-center gap-2"
+                                                >
+                                                    <div class="h-1.5 w-24 overflow-hidden rounded-full bg-gray-200">
+                                                        <div
+                                                            class="h-full rounded-full bg-blue-500 transition-all duration-300"
+                                                            :style="{ width: `${file.progress || 0}%` }"
+                                                        />
+                                                    </div>
+                                                    <span class="text-xs font-medium tabular-nums text-gray-600">
+                                                        {{ file.progress || 0 }}%
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </td>
                                         <td class="whitespace-nowrap px-5 py-4 text-right">
                                             <button

@@ -1,28 +1,49 @@
 import argparse
 import json
+import sys
 from pathlib import Path
+
+
+def emit_progress(value):
+    value = max(0, min(100, int(value)))
+    sys.stdout.write(json.dumps({"progress": value}) + "\n")
+    sys.stdout.flush()
 
 
 def transcribe_with_faster_whisper(args):
     from faster_whisper import WhisperModel
 
     model = WhisperModel(args.model, device=args.device, compute_type=args.compute_type)
-    segments, info = model.transcribe(
+    emit_progress(1)
+    segments_iter, info = model.transcribe(
         args.file,
         language=args.language,
         vad_filter=True,
     )
 
-    normalized_segments = [
-        {"start": segment.start, "end": segment.end, "text": segment.text.strip()}
-        for segment in segments
-    ]
+    total_duration = getattr(info, "duration", None) or 0
+    normalized_segments = []
+    last_progress = 1
+
+    for segment in segments_iter:
+        normalized_segments.append({
+            "start": segment.start,
+            "end": segment.end,
+            "text": segment.text.strip(),
+        })
+        if total_duration > 0:
+            progress = int((segment.end / total_duration) * 99)
+            if progress > last_progress:
+                emit_progress(progress)
+                last_progress = progress
+
+    emit_progress(100)
 
     return {
         "engine": "faster-whisper",
         "model": args.model,
         "language": info.language,
-        "duration": getattr(info, "duration", None) or duration_from_segments(normalized_segments),
+        "duration": total_duration or duration_from_segments(normalized_segments),
         "text": " ".join(segment["text"] for segment in normalized_segments).strip(),
         "segments": normalized_segments,
     }
@@ -46,6 +67,8 @@ def transcribe_with_openai_whisper(args):
         }
         for segment in result.get("segments", [])
     ]
+
+    emit_progress(100)
 
     return {
         "engine": "openai-whisper",
