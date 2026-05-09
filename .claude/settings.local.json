@@ -3,7 +3,9 @@
     "allow": [
       "Read(//c/laragon/bin/php/**)",
       "Read(//c/laragon/bin/php//**)",
-      "Bash(\"C:/laragon/bin/php/php-8.4.21-Win32-vs17-x64/php.exe\" artisan *)"
+      "Bash(\"C:/laragon/bin/php/php-8.4.21-Win32-vs17-x64/php.exe\" artisan *)",
+      "Bash(/c/laragon/bin/php/php-8.4.21-Win32-vs17-x64/php.exe artisan *)",
+      "Bash(/c/laragon/bin/php/php-8.4.21-Win32-vs17-x64/php.exe /c/laragon/bin/composer/composer.phar dump-autoload)"
     ]
   }
 }

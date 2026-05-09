@@ -110,4 +110,15 @@ class TranscriptionFolderController extends Controller
 
         return back()->with('status', 'Carpeta creada.');
     }
+
+    public function destroy(Request $request, TranscriptionFolder $folder): RedirectResponse
+    {
+        abort_unless($folder->user_id === $request->user()->id, 403);
+
+        $folder->delete();
+
+        return redirect()
+            ->route('dashboard')
+            ->with('success', 'Carpeta eliminada. Las transcripciones quedaron en "Sin ordenar".');
+    }
 }

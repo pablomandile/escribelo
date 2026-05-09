@@ -2,14 +2,18 @@
 
 namespace App\Jobs;
 
+use App\Models\AppSetting;
 use App\Models\Transcription;
 use App\Models\TranscriptionFile;
+use App\Services\Transcriber\LocalProcessTranscriber;
+use App\Services\Transcriber\RemoteApiTranscriber;
+use App\Services\Transcriber\RemoteWorkerOfflineException;
+use App\Services\Transcriber\TranscriberInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Symfony\Component\Process\Process;
 use Throwable;
 
 class ProcessTranscriptionFile implements ShouldQueue
@@ -17,10 +21,11 @@ class ProcessTranscriptionFile implements ShouldQueue
     use Queueable;
 
     public int $timeout = 3600;
+    public int $tries = 1;
 
     public function __construct(public TranscriptionFile $transcriptionFile)
     {
-        $this->timeout = (int) config('transcription.timeout', 3600);
+        $this->timeout = AppSetting::whisperTimeout();
     }
 
     public function handle(): void
@@ -32,7 +37,7 @@ class ProcessTranscriptionFile implements ShouldQueue
         }
 
         $file->update([
-            'status' => 'processing',
+            'status' => $file->clean_audio ? 'enhancing' : 'processing',
             'progress' => 0,
             'error_message' => null,
         ]);
@@ -49,80 +54,75 @@ class ProcessTranscriptionFile implements ShouldQueue
             Storage::disk('local')->makeDirectory('cleaned');
         }
 
-        $process = new Process([
-            config('transcription.python', 'python'),
-            base_path('whisper_worker/transcribe.py'),
-            '--file',
-            $audioPath,
-            '--output',
-            $outputPath,
-            '--model',
-            $file->model ?: config('transcription.model', 'small'),
-            ...($file->language ? ['--language', $file->language] : []),
-            ...($file->clean_audio ? ['--clean-audio', '--cleaned-output', $cleanedAbsolutePath] : []),
-        ], base_path(), [
-            'PYTHONIOENCODING' => 'utf-8',
-        ], null, (float) config('transcription.timeout', 3600));
+        $transcriber = $this->resolveTranscriber();
 
-        $stdoutBuffer = '';
-        $process->start();
-        $file->forceFill(['worker_pid' => $process->getPid()])->saveQuietly();
-        $process->wait(function ($type, $buffer) use (&$stdoutBuffer, $file): void {
-            if ($type !== Process::OUT) {
+        $onEvent = function (array $payload) use ($file): void {
+            if (isset($payload['pid'])) {
+                $file->forceFill(['worker_pid' => (int) $payload['pid']])->saveQuietly();
                 return;
             }
-            $stdoutBuffer .= $buffer;
-            while (($newlinePos = strpos($stdoutBuffer, "\n")) !== false) {
-                $line = trim(substr($stdoutBuffer, 0, $newlinePos));
-                $stdoutBuffer = substr($stdoutBuffer, $newlinePos + 1);
-                if ($line === '' || $line[0] !== '{') {
-                    continue;
-                }
-                $payload = json_decode($line, true);
-                if (! is_array($payload)) {
-                    continue;
-                }
-                if (isset($payload['progress'])) {
-                    $progress = max(0, min(100, (int) $payload['progress']));
-                    $file->forceFill(['progress' => $progress])->saveQuietly();
-                    Log::info('Whisper progress', [
-                        'transcription_file_id' => $file->id,
-                        'progress' => $progress,
-                    ]);
-                }
-                if (isset($payload['phase'])) {
-                    Log::info('Whisper phase: '.$payload['phase'], [
-                        'transcription_file_id' => $file->id,
-                    ] + $payload);
+            if (isset($payload['progress'])) {
+                $progress = max(0, min(100, (int) $payload['progress']));
+                $file->forceFill(['progress' => $progress])->saveQuietly();
+                Log::info('Whisper progress', [
+                    'transcription_file_id' => $file->id,
+                    'progress' => $progress,
+                ]);
+            }
+            if (isset($payload['phase'])) {
+                Log::info('Whisper phase: '.$payload['phase'], [
+                    'transcription_file_id' => $file->id,
+                ] + $payload);
+
+                if ($payload['phase'] === 'denoise_done') {
+                    $file->forceFill(['status' => 'processing'])->saveQuietly();
                 }
             }
-        });
+        };
 
-        if (! $process->isSuccessful()) {
-            $errorOutput = trim($process->getErrorOutput() ?: $process->getOutput()) ?: 'Whisper failed.';
+        try {
+            $transcriber->transcribe(
+                $file,
+                $outputPath,
+                $file->clean_audio ? $cleanedAbsolutePath : null,
+                $onEvent,
+            );
+        } catch (RemoteWorkerOfflineException $e) {
+            Log::warning('Remote worker offline — scheduling retry', [
+                'transcription_file_id' => $file->id,
+                'message' => $e->getMessage(),
+            ]);
 
+            $file->forceFill([
+                'status' => 'waiting_for_worker',
+                'error_message' => null,
+            ])->saveQuietly();
+
+            // Dispatch a fresh job so we don't get killed by `--tries=1` on the worker.
+            // Effectively gives infinite retries until the worker comes back online.
+            self::dispatch($file)->delay(now()->addSeconds(60));
+            return;
+        } catch (Throwable $e) {
             if ($file->fresh() === null) {
-                Log::info('Whisper process cancelled (transcription deleted)', [
+                Log::info('Transcriber cancelled (transcription deleted)', [
                     'transcription_file_id' => $file->id,
-                    'audio_path' => $audioPath,
                 ]);
                 return;
             }
 
-            Log::error('Whisper process failed', [
+            Log::error('Transcription failed', [
                 'transcription_file_id' => $file->id,
                 'audio_path' => $audioPath,
                 'model' => $file->model,
-                'exit_code' => $process->getExitCode(),
-                'error_output' => $errorOutput,
+                'message' => $e->getMessage(),
             ]);
-            throw new \RuntimeException($errorOutput);
+            throw $e;
         }
 
         $payload = json_decode(file_get_contents($outputPath), true, flags: JSON_THROW_ON_ERROR);
         $segments = $payload['segments'] ?? [];
 
-        DB::transaction(function () use ($file, $payload, $segments): void {
+        DB::transaction(function () use ($file, $payload, $segments, $cleanedAbsolutePath, $cleanedRelativePath): void {
             $transcription = Transcription::updateOrCreate(
                 ['transcription_file_id' => $file->id],
                 [
@@ -164,19 +164,37 @@ class ProcessTranscriptionFile implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
-        $message = $exception?->getMessage();
+        $rawMessage = $exception?->getMessage();
+        $exceptionClass = $exception ? get_class($exception) : null;
+
+        $userMessage = match (true) {
+            $exception instanceof \Illuminate\Queue\MaxAttemptsExceededException
+                => 'El procesamiento superó el tiempo máximo permitido ('.config('transcription.timeout', 1800).'s) o el worker se reinició mientras corría. Probá de nuevo o aumentá WHISPER_TIMEOUT en .env si tu audio es muy largo.',
+            $exception instanceof \Symfony\Component\Process\Exception\ProcessTimedOutException
+                => 'El proceso de transcripción superó el tiempo permitido. Aumentá WHISPER_TIMEOUT o usá un modelo más rápido.',
+            default => $rawMessage,
+        };
 
         Log::error('Transcription job failed', [
             'transcription_file_id' => $this->transcriptionFile->id,
-            'message' => $message,
-            'exception' => $exception ? get_class($exception) : null,
+            'message' => $userMessage,
+            'raw_message' => $rawMessage,
+            'exception' => $exceptionClass,
             'trace' => $exception?->getTraceAsString(),
         ]);
 
         $this->transcriptionFile->fresh()?->update([
             'status' => 'failed',
-            'error_message' => $message,
+            'error_message' => $userMessage,
         ]);
+    }
+
+    private function resolveTranscriber(): TranscriberInterface
+    {
+        $mode = AppSetting::get('mode', 'local');
+        return $mode === 'host'
+            ? app(RemoteApiTranscriber::class)
+            : app(LocalProcessTranscriber::class);
     }
 
     private function durationFromSegments(array $segments): ?float

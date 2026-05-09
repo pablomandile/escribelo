@@ -26,16 +26,19 @@ class GroqSummarizer implements SummarizerInterface
         }
     }
 
-    public function summarize(string $text, ?string $language = null): array
+    public function summarize(string $text, ?string $language = null, ?callable $onProgress = null): array
     {
         if (mb_strlen($text) <= self::MAX_CHARS_PER_CHUNK) {
+            if ($onProgress) {
+                $onProgress(['phase' => 'single', 'chunk' => 1, 'total' => 1]);
+            }
             return $this->callOnce($text, $language, mode: 'single');
         }
 
-        return $this->summarizeWithChunking($text, $language);
+        return $this->summarizeWithChunking($text, $language, $onProgress);
     }
 
-    private function summarizeWithChunking(string $text, ?string $language): array
+    private function summarizeWithChunking(string $text, ?string $language, ?callable $onProgress = null): array
     {
         $chunks = $this->chunkText($text, self::MAX_CHARS_PER_CHUNK);
         Log::info('Groq chunked summarize', ['chunks' => count($chunks), 'total_chars' => mb_strlen($text)]);
@@ -44,6 +47,9 @@ class GroqSummarizer implements SummarizerInterface
         $tokensTotal = 0;
 
         foreach ($chunks as $i => $chunk) {
+            if ($onProgress) {
+                $onProgress(['phase' => 'partial', 'chunk' => $i + 1, 'total' => count($chunks), 'tokens_so_far' => $tokensTotal]);
+            }
             $partial = $this->callOnce($chunk, $language, mode: 'partial', chunkIndex: $i + 1, chunkTotal: count($chunks));
             $partialSummaries[] = $partial['summary'];
             if (! empty($partial['key_points'])) {
@@ -58,7 +64,11 @@ class GroqSummarizer implements SummarizerInterface
 
         if (mb_strlen($combined) > self::MAX_CHARS_PER_CHUNK) {
             // Si los resúmenes parciales juntos siguen siendo gigantes, resumimos los resúmenes recursivamente
-            return $this->summarizeWithChunking($combined, $language);
+            return $this->summarizeWithChunking($combined, $language, $onProgress);
+        }
+
+        if ($onProgress) {
+            $onProgress(['phase' => 'reducing', 'chunk' => count($chunks), 'total' => count($chunks), 'tokens_so_far' => $tokensTotal]);
         }
 
         $final = $this->callOnce($combined, $language, mode: 'final');

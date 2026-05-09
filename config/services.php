@@ -50,4 +50,37 @@ return [
         'summary_model' => env('OLLAMA_SUMMARY_MODEL', 'gemma3:12b'),
     ],
 
+    'remote_worker' => [
+        'base_url' => env('REMOTE_WORKER_URL'),
+        'token' => env('REMOTE_WORKER_TOKEN'),
+        'timeout' => (int) env('REMOTE_WORKER_TIMEOUT', 14400),
+        'health_timeout' => (int) env('REMOTE_WORKER_HEALTH_TIMEOUT', 5),
+
+        // Local management — when this host runs the worker process, the admin
+        // panel can start/stop/restart it. Disable on a hosting environment
+        // that only consumes a remote URL.
+        'manage_locally' => filter_var(env('REMOTE_WORKER_MANAGE_LOCALLY', true), FILTER_VALIDATE_BOOLEAN),
+        'host' => env('REMOTE_WORKER_BIND_HOST', '127.0.0.1'),
+        'port' => (int) env('REMOTE_WORKER_BIND_PORT', 8765),
+        'python' => env('REMOTE_WORKER_PYTHON'),  // null → falls back to PATH 'python'
+    ],
+
+    'google' => [
+        // Aceptamos tanto los nombres estándar (GOOGLE_*) como los que pusiste
+        // en español (ID_CLIENTE, SECRETO_CLIENTE) para que funcione sin que
+        // tengas que renombrar nada. Recomendado: usar GOOGLE_* (convención).
+        'client_id' => env('GOOGLE_CLIENT_ID', env('ID_CLIENTE')),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET', env('SECRETO_CLIENTE')),
+        'redirect' => env('GOOGLE_REDIRECT_URI', env('URI_REDIRECCION', 'http://localhost:8000/auth/google/callback')),
+    ],
+
+    'cloudflared' => [
+        // Path al binario cloudflared. Vacío → busca 'cloudflared' en el PATH.
+        'binary' => env('CLOUDFLARED_BIN'),
+        // Nombre o UUID del tunnel. Vacío → usa la config por defecto en ~/.cloudflared/config.yml
+        'tunnel' => env('CLOUDFLARED_TUNNEL'),
+        // Igual que el worker: en hosting (sin cloudflared local) poné false para ocultar el panel.
+        'manage_locally' => filter_var(env('CLOUDFLARED_MANAGE_LOCALLY', true), FILTER_VALIDATE_BOOLEAN),
+    ],
+
 ];

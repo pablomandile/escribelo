@@ -25,13 +25,8 @@ class ProfileController extends Controller
             'status' => session('status'),
             'settings' => [
                 'backup_on_replace' => (bool) $user->getSetting('backup_on_replace'),
-                'transcription_provider' => $user->getSetting('transcription_provider') ?? 'local',
-                'summary_provider' => $user->getSetting('summary_provider') ?? 'groq',
-            ],
-            'providerInfo' => [
-                'groq_configured' => (bool) config('services.groq.key'),
-                'ollama_model' => config('services.ollama.summary_model'),
-                'ollama_base_url' => config('services.ollama.base_url'),
+                'theme' => $user->getSetting('theme') === 'dark' ? 'dark' : 'light',
+                'notify_on_complete' => (bool) $user->getSetting('notify_on_complete'),
             ],
         ]);
     }
@@ -40,20 +35,20 @@ class ProfileController extends Controller
     {
         $validated = $request->validate([
             'backup_on_replace' => ['required', 'boolean'],
-            'transcription_provider' => ['required', 'string', 'in:local,groq'],
-            'summary_provider' => ['required', 'string', 'in:groq,ollama'],
+            'theme' => ['required', 'in:light,dark'],
+            'notify_on_complete' => ['required', 'boolean'],
         ]);
 
         $user = $request->user();
         $settings = array_merge($user->settings ?? [], [
             'backup_on_replace' => (bool) $validated['backup_on_replace'],
-            'transcription_provider' => $validated['transcription_provider'],
-            'summary_provider' => $validated['summary_provider'],
+            'theme' => $validated['theme'],
+            'notify_on_complete' => (bool) $validated['notify_on_complete'],
         ]);
 
         $user->forceFill(['settings' => $settings])->save();
 
-        return Redirect::route('profile.edit')->with('status', 'Configuración guardada.');
+        return Redirect::route('profile.edit')->with('status', 'Preferencias guardadas.');
     }
 
     /**

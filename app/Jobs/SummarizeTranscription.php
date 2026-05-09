@@ -2,10 +2,12 @@
 
 namespace App\Jobs;
 
+use App\Models\AppSetting;
 use App\Models\GroqUsage;
 use App\Models\Transcription;
 use App\Services\Summarizer\GroqSummarizer;
 use App\Services\Summarizer\OllamaSummarizer;
+use App\Services\Summarizer\RemoteSummarizer;
 use App\Services\Summarizer\SummarizerException;
 use App\Services\Summarizer\SummarizerInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -30,14 +32,20 @@ class SummarizeTranscription implements ShouldQueue
             return;
         }
 
+        // Si el usuario canceló mientras el job estaba en cola, abortamos sin tocar nada.
+        if ($transcription->summary_status === 'failed') {
+            Log::info('Summary job aborted (cancelled by user)', [
+                'transcription_id' => $transcription->id,
+            ]);
+            return;
+        }
+
         $file = $transcription->file;
         if (! $file) {
             return;
         }
 
-        $user = $file->user;
-        $provider = $user?->getSetting('summary_provider') ?? 'groq';
-
+        $provider = $this->resolveProvider();
         $summarizer = $this->makeSummarizer($provider);
 
         $transcription->update([
@@ -49,9 +57,25 @@ class SummarizeTranscription implements ShouldQueue
 
         try {
             $result = $summarizer->summarize(
-                (string) $transcription->text,
+                $transcription->effectiveText(),
                 $file->language,
+                function (array $progress) use ($transcription) {
+                    $transcription->forceFill([
+                        'summary_metadata' => array_merge($transcription->summary_metadata ?? [], [
+                            'progress' => $progress,
+                            'last_heartbeat' => now()->toIso8601String(),
+                        ]),
+                    ])->saveQuietly();
+                },
             );
+
+            // Si el usuario canceló mientras llamábamos al LLM, descartamos el resultado.
+            if ($transcription->fresh()?->summary_status === 'failed') {
+                Log::info('Summary discarded (cancelled mid-flight)', [
+                    'transcription_id' => $transcription->id,
+                ]);
+                return;
+            }
 
             $transcription->update([
                 'summary' => $result['summary'],
@@ -84,11 +108,21 @@ class SummarizeTranscription implements ShouldQueue
         }
     }
 
+    private function resolveProvider(): string
+    {
+        // Global app mode decides where summaries are computed.
+        // Local → Ollama on the same machine.
+        // Host  → Remote worker (Ollama via Cloudflare Tunnel).
+        $mode = AppSetting::get('mode', 'local');
+        return $mode === 'host' ? 'remote' : 'ollama';
+    }
+
     private function makeSummarizer(string $provider): SummarizerInterface
     {
         return match ($provider) {
-            'ollama' => app(OllamaSummarizer::class),
-            default => app(GroqSummarizer::class),
+            'remote' => app(RemoteSummarizer::class),
+            'groq'   => app(GroqSummarizer::class),
+            default  => app(OllamaSummarizer::class),
         };
     }
 

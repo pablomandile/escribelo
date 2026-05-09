@@ -16,9 +16,9 @@ const showingNavigationDropdown = ref(false);
     <div>
         <ConfirmModal />
         <ToastContainer />
-        <div class="min-h-screen bg-gray-100">
+        <div class="flex min-h-screen flex-col bg-gray-100 dark:bg-gray-900">
             <nav
-                class="border-b border-gray-100 bg-white"
+                class="border-b border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-800"
             >
                 <!-- Primary Navigation Menu -->
                 <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -28,7 +28,7 @@ const showingNavigationDropdown = ref(false);
                             <div class="flex shrink-0 items-center">
                                 <Link :href="route('dashboard')">
                                     <ApplicationLogo
-                                        class="block h-9 w-auto fill-current text-gray-800"
+                                        class="block h-9 w-auto fill-current text-gray-800 dark:text-gray-100"
                                     />
                                 </Link>
                             </div>
@@ -55,6 +55,12 @@ const showingNavigationDropdown = ref(false);
                                 >
                                     Modelo
                                 </NavLink>
+                                <NavLink
+                                    :href="route('about.faq')"
+                                    :active="route().current('about.faq')"
+                                >
+                                    FAQ
+                                </NavLink>
                             </div>
                         </div>
 
@@ -66,7 +72,7 @@ const showingNavigationDropdown = ref(false);
                                         <span class="inline-flex rounded-md">
                                             <button
                                                 type="button"
-                                                class="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out hover:text-gray-700 focus:outline-none"
+                                                class="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out hover:text-gray-700 focus:outline-none dark:bg-gray-800 dark:text-gray-300 dark:hover:text-gray-100"
                                             >
                                                 {{ $page.props.auth.user.name }}
 
@@ -93,6 +99,18 @@ const showingNavigationDropdown = ref(false);
                                             Perfil
                                         </DropdownLink>
                                         <DropdownLink
+                                            v-if="$page.props.auth.user?.is_admin"
+                                            :href="route('admin.settings.edit')"
+                                        >
+                                            Configuración de Escríbelo
+                                        </DropdownLink>
+                                        <DropdownLink
+                                            v-if="$page.props.auth.user?.is_admin"
+                                            :href="route('admin.users.index')"
+                                        >
+                                            Usuarios
+                                        </DropdownLink>
+                                        <DropdownLink
                                             :href="route('logout')"
                                             method="post"
                                             as="button"
@@ -111,7 +129,7 @@ const showingNavigationDropdown = ref(false);
                                     showingNavigationDropdown =
                                         !showingNavigationDropdown
                                 "
-                                class="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none"
+                                class="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200 dark:focus:bg-gray-700"
                             >
                                 <svg
                                     class="h-6 w-6"
@@ -174,19 +192,25 @@ const showingNavigationDropdown = ref(false);
                         >
                             Modelo
                         </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            :href="route('about.faq')"
+                            :active="route().current('about.faq')"
+                        >
+                            FAQ
+                        </ResponsiveNavLink>
                     </div>
 
                     <!-- Responsive Settings Options -->
                     <div
-                        class="border-t border-gray-200 pb-1 pt-4"
+                        class="border-t border-gray-200 pb-1 pt-4 dark:border-gray-700"
                     >
                         <div class="px-4">
                             <div
-                                class="text-base font-medium text-gray-800"
+                                class="text-base font-medium text-gray-800 dark:text-gray-200"
                             >
                                 {{ $page.props.auth.user.name }}
                             </div>
-                            <div class="text-sm font-medium text-gray-500">
+                            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">
                                 {{ $page.props.auth.user.email }}
                             </div>
                         </div>
@@ -194,6 +218,18 @@ const showingNavigationDropdown = ref(false);
                         <div class="mt-3 space-y-1">
                             <ResponsiveNavLink :href="route('profile.edit')">
                                 Perfil
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                v-if="$page.props.auth.user?.is_admin"
+                                :href="route('admin.settings.edit')"
+                            >
+                                Configuración de Escríbelo
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                v-if="$page.props.auth.user?.is_admin"
+                                :href="route('admin.users.index')"
+                            >
+                                Usuarios
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
                                 :href="route('logout')"
@@ -209,7 +245,7 @@ const showingNavigationDropdown = ref(false);
 
             <!-- Page Heading -->
             <header
-                class="bg-white shadow"
+                class="bg-white shadow dark:bg-gray-800 dark:shadow-gray-950/50"
                 v-if="$slots.header"
             >
                 <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -218,9 +254,25 @@ const showingNavigationDropdown = ref(false);
             </header>
 
             <!-- Page Content -->
-            <main>
+            <main class="flex-1">
                 <slot />
             </main>
+
+            <!-- Footer -->
+            <footer
+                class="border-t border-gray-200 bg-gradient-to-r from-gray-200 to-gray-50 dark:border-gray-800 dark:from-gray-800 dark:to-gray-900"
+            >
+                <div class="mx-auto flex max-w-7xl flex-col items-center gap-2 px-4 py-4 text-center text-sm text-gray-700 sm:px-6 lg:px-8 dark:text-gray-300">
+                    <p class="font-medium">© 2026 Escríbelo</p>
+                    <nav class="flex flex-wrap justify-center gap-x-4 gap-y-1">
+                        <Link :href="route('dashboard')" class="hover:text-gray-900 dark:hover:text-white">Inicio</Link>
+                        <Link :href="route('folders.index')" class="hover:text-gray-900 dark:hover:text-white">Biblioteca</Link>
+                        <Link :href="route('about.model')" class="hover:text-gray-900 dark:hover:text-white">Modelo</Link>
+                        <Link :href="route('about.faq')" class="hover:text-gray-900 dark:hover:text-white">FAQ</Link>
+                        <Link :href="route('profile.edit')" class="hover:text-gray-900 dark:hover:text-white">Configuración de la cuenta</Link>
+                    </nav>
+                </div>
+            </footer>
         </div>
     </div>
 </template>

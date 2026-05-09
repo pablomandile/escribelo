@@ -9,10 +9,10 @@ import { Head } from '@inertiajs/vue3';
     <AuthenticatedLayout>
         <template #header>
             <div>
-                <h2 class="text-xl font-semibold leading-tight text-gray-900 sm:text-2xl">
+                <h2 class="text-xl font-semibold leading-tight text-gray-900 dark:text-gray-100 sm:text-2xl">
                     Whisper · el motor de transcripción
                 </h2>
-                <p class="mt-1 text-sm text-gray-600">
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
                     Información sobre el modelo de IA que convierte tus audios
                     en texto.
                 </p>
@@ -64,12 +64,12 @@ import { Head } from '@inertiajs/vue3';
             </section>
 
             <section class="grid gap-6 md:grid-cols-[auto_1fr] md:items-start">
-                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-yellow-100 text-2xl">
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-yellow-100 dark:bg-yellow-900/30 text-2xl">
                         💡
                     </div>
                     <div>
-                        <h3 class="text-3xl font-extrabold tracking-tight text-gray-900">¿Qué es Whisper?</h3>
-                        <p class="mt-3 text-base leading-7 text-gray-700">
+                        <h3 class="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">¿Qué es Whisper?</h3>
+                        <p class="mt-3 text-base leading-7 text-gray-700 dark:text-gray-200">
                             <strong>Whisper</strong> es un modelo de
                             reconocimiento automático de voz (ASR) creado por
                             <strong>OpenAI</strong> y publicado como código
@@ -79,7 +79,7 @@ import { Head } from '@inertiajs/vue3';
                             lo que le da gran robustez frente a acentos, ruido
                             de fondo y vocabulario técnico.
                         </p>
-                        <p class="mt-3 text-base leading-7 text-gray-700">
+                        <p class="mt-3 text-base leading-7 text-gray-700 dark:text-gray-200">
                             Resuelve varias tareas a la vez con un único
                             modelo: <strong>transcripción</strong> (audio →
                             texto en el mismo idioma),
@@ -91,12 +91,12 @@ import { Head } from '@inertiajs/vue3';
                 </section>
 
                 <section class="grid gap-6 md:grid-cols-[auto_1fr] md:items-start">
-                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-2xl">
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-900/30 text-2xl">
                         ⚙️
                     </div>
                     <div>
-                        <h3 class="text-3xl font-extrabold tracking-tight text-gray-900">Cómo funciona</h3>
-                        <p class="mt-3 text-base leading-7 text-gray-700">
+                        <h3 class="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">Cómo funciona</h3>
+                        <p class="mt-3 text-base leading-7 text-gray-700 dark:text-gray-200">
                             Whisper es un <strong>Transformer</strong> de tipo
                             encoder-decoder. El audio se procesa en ventanas de
                             30 segundos, se convierte a un espectrograma
@@ -107,180 +107,180 @@ import { Head } from '@inertiajs/vue3';
                             vs. traducir) y en qué idioma.
                         </p>
                         <div class="mt-4 flex flex-wrap items-center gap-2 text-sm">
-                            <span class="rounded-md bg-slate-100 px-3 py-1.5 font-medium text-slate-700">🎙️ Audio</span>
-                            <span class="text-slate-400">→</span>
-                            <span class="rounded-md bg-slate-100 px-3 py-1.5 font-medium text-slate-700">📊 Espectrograma</span>
-                            <span class="text-slate-400">→</span>
-                            <span class="rounded-md bg-slate-100 px-3 py-1.5 font-medium text-slate-700">🧠 Encoder</span>
-                            <span class="text-slate-400">→</span>
-                            <span class="rounded-md bg-slate-100 px-3 py-1.5 font-medium text-slate-700">✍️ Decoder</span>
-                            <span class="text-slate-400">→</span>
-                            <span class="rounded-md bg-emerald-100 px-3 py-1.5 font-medium text-emerald-700">📝 Texto</span>
+                            <span class="rounded-md bg-slate-100 dark:bg-slate-800 px-3 py-1.5 font-medium text-slate-700 dark:text-slate-200">🎙️ Audio</span>
+                            <span class="text-slate-400 dark:text-slate-500">→</span>
+                            <span class="rounded-md bg-slate-100 dark:bg-slate-800 px-3 py-1.5 font-medium text-slate-700 dark:text-slate-200">📊 Espectrograma</span>
+                            <span class="text-slate-400 dark:text-slate-500">→</span>
+                            <span class="rounded-md bg-slate-100 dark:bg-slate-800 px-3 py-1.5 font-medium text-slate-700 dark:text-slate-200">🧠 Encoder</span>
+                            <span class="text-slate-400 dark:text-slate-500">→</span>
+                            <span class="rounded-md bg-slate-100 dark:bg-slate-800 px-3 py-1.5 font-medium text-slate-700 dark:text-slate-200">✍️ Decoder</span>
+                            <span class="text-slate-400 dark:text-slate-500">→</span>
+                            <span class="rounded-md bg-emerald-100 dark:bg-emerald-900/30 px-3 py-1.5 font-medium text-emerald-700 dark:text-emerald-200">📝 Texto</span>
                         </div>
                     </div>
                 </section>
 
                 <section>
                     <div class="text-center">
-                        <h3 class="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">Modelos disponibles</h3>
-                        <p class="mt-3 text-base font-medium text-gray-600 sm:text-lg">
+                        <h3 class="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl">Modelos disponibles</h3>
+                        <p class="mt-3 text-base font-medium text-gray-600 dark:text-gray-400 sm:text-lg">
                             Elegí el balance entre velocidad y precisión que
                             necesités para cada audio.
                         </p>
                     </div>
                     <div class="mt-6 grid gap-4 md:grid-cols-3">
-                        <article class="group relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                        <article class="group relative overflow-hidden rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/20 dark:to-gray-800 p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                             <div class="absolute -right-4 -top-4 text-7xl opacity-20" aria-hidden="true">🐇</div>
                             <div class="relative">
                                 <span class="text-5xl" aria-hidden="true">🐇</span>
-                                <h4 class="mt-3 text-2xl font-extrabold tracking-tight text-gray-900">small</h4>
-                                <p class="text-sm font-semibold text-emerald-700">Rápido</p>
+                                <h4 class="mt-3 text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">small</h4>
+                                <p class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Rápido</p>
                                 <dl class="mt-4 space-y-1.5 text-sm">
                                     <div class="flex justify-between">
-                                        <dt class="text-gray-500">Parámetros</dt>
-                                        <dd class="font-semibold text-gray-800">244 M</dd>
+                                        <dt class="text-gray-500 dark:text-gray-400">Parámetros</dt>
+                                        <dd class="font-semibold text-gray-800 dark:text-gray-100">244 M</dd>
                                     </div>
                                     <div class="flex justify-between">
-                                        <dt class="text-gray-500">VRAM aprox.</dt>
-                                        <dd class="font-semibold text-gray-800">~2 GB</dd>
+                                        <dt class="text-gray-500 dark:text-gray-400">VRAM aprox.</dt>
+                                        <dd class="font-semibold text-gray-800 dark:text-gray-100">~2 GB</dd>
                                     </div>
                                     <div class="flex justify-between">
-                                        <dt class="text-gray-500">Velocidad</dt>
-                                        <dd class="font-semibold text-gray-800">~6×</dd>
+                                        <dt class="text-gray-500 dark:text-gray-400">Velocidad</dt>
+                                        <dd class="font-semibold text-gray-800 dark:text-gray-100">~6×</dd>
                                     </div>
                                 </dl>
-                                <p class="mt-4 border-t border-emerald-100 pt-3 text-xs leading-relaxed text-gray-600">
+                                <p class="mt-4 border-t border-emerald-100 dark:border-emerald-800 pt-3 text-xs leading-relaxed text-gray-600 dark:text-gray-400">
                                     Notas rápidas, audio limpio, dictados.
                                 </p>
                             </div>
                         </article>
 
-                        <article class="group relative overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                        <article class="group relative overflow-hidden rounded-2xl border border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-white dark:from-amber-900/20 dark:to-gray-800 p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                             <div class="absolute -right-4 -top-4 text-7xl opacity-20" aria-hidden="true">🦊</div>
                             <div class="relative">
                                 <span class="text-5xl" aria-hidden="true">🦊</span>
-                                <h4 class="mt-3 text-2xl font-extrabold tracking-tight text-gray-900">medium</h4>
-                                <p class="text-sm font-semibold text-amber-700">Equilibrado</p>
+                                <h4 class="mt-3 text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">medium</h4>
+                                <p class="text-sm font-semibold text-amber-700 dark:text-amber-300">Equilibrado</p>
                                 <dl class="mt-4 space-y-1.5 text-sm">
                                     <div class="flex justify-between">
-                                        <dt class="text-gray-500">Parámetros</dt>
-                                        <dd class="font-semibold text-gray-800">769 M</dd>
+                                        <dt class="text-gray-500 dark:text-gray-400">Parámetros</dt>
+                                        <dd class="font-semibold text-gray-800 dark:text-gray-100">769 M</dd>
                                     </div>
                                     <div class="flex justify-between">
-                                        <dt class="text-gray-500">VRAM aprox.</dt>
-                                        <dd class="font-semibold text-gray-800">~5 GB</dd>
+                                        <dt class="text-gray-500 dark:text-gray-400">VRAM aprox.</dt>
+                                        <dd class="font-semibold text-gray-800 dark:text-gray-100">~5 GB</dd>
                                     </div>
                                     <div class="flex justify-between">
-                                        <dt class="text-gray-500">Velocidad</dt>
-                                        <dd class="font-semibold text-gray-800">~2×</dd>
+                                        <dt class="text-gray-500 dark:text-gray-400">Velocidad</dt>
+                                        <dd class="font-semibold text-gray-800 dark:text-gray-100">~2×</dd>
                                     </div>
                                 </dl>
-                                <p class="mt-4 border-t border-amber-100 pt-3 text-xs leading-relaxed text-gray-600">
+                                <p class="mt-4 border-t border-amber-100 dark:border-amber-800 pt-3 text-xs leading-relaxed text-gray-600 dark:text-gray-400">
                                     Reuniones, podcasts, audio con algo de
                                     ruido.
                                 </p>
                             </div>
                         </article>
 
-                        <article class="group relative overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                        <article class="group relative overflow-hidden rounded-2xl border border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-white dark:from-blue-900/20 dark:to-gray-800 p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                             <div class="absolute -right-4 -top-4 text-7xl opacity-20" aria-hidden="true">🐋</div>
                             <div class="relative">
                                 <span class="text-5xl" aria-hidden="true">🐋</span>
-                                <h4 class="mt-3 text-2xl font-extrabold tracking-tight text-gray-900">large-v3</h4>
-                                <p class="text-sm font-semibold text-blue-700">Máxima precisión</p>
+                                <h4 class="mt-3 text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">large-v3</h4>
+                                <p class="text-sm font-semibold text-blue-700 dark:text-blue-300">Máxima precisión</p>
                                 <dl class="mt-4 space-y-1.5 text-sm">
                                     <div class="flex justify-between">
-                                        <dt class="text-gray-500">Parámetros</dt>
-                                        <dd class="font-semibold text-gray-800">1.550 M</dd>
+                                        <dt class="text-gray-500 dark:text-gray-400">Parámetros</dt>
+                                        <dd class="font-semibold text-gray-800 dark:text-gray-100">1.550 M</dd>
                                     </div>
                                     <div class="flex justify-between">
-                                        <dt class="text-gray-500">VRAM aprox.</dt>
-                                        <dd class="font-semibold text-gray-800">~10 GB</dd>
+                                        <dt class="text-gray-500 dark:text-gray-400">VRAM aprox.</dt>
+                                        <dd class="font-semibold text-gray-800 dark:text-gray-100">~10 GB</dd>
                                     </div>
                                     <div class="flex justify-between">
-                                        <dt class="text-gray-500">Velocidad</dt>
-                                        <dd class="font-semibold text-gray-800">~1×</dd>
+                                        <dt class="text-gray-500 dark:text-gray-400">Velocidad</dt>
+                                        <dd class="font-semibold text-gray-800 dark:text-gray-100">~1×</dd>
                                     </div>
                                 </dl>
-                                <p class="mt-4 border-t border-blue-100 pt-3 text-xs leading-relaxed text-gray-600">
+                                <p class="mt-4 border-t border-blue-100 dark:border-blue-800 pt-3 text-xs leading-relaxed text-gray-600 dark:text-gray-400">
                                     Audio difícil, terminología especializada,
                                     máxima fidelidad.
                                 </p>
                             </div>
                         </article>
                     </div>
-                    <p class="mt-4 text-center text-xs text-gray-500">
-                        Velocidad relativa medida frente a <code class="rounded bg-slate-100 px-1.5 py-0.5">large-v3</code>
+                    <p class="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
+                        Velocidad relativa medida frente a <code class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5">large-v3</code>
                         en la misma GPU. En CPU el modelo igual funciona, pero
                         más lento.
                     </p>
                 </section>
 
                 <section class="grid gap-4 md:grid-cols-2">
-                    <div class="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-6 shadow-sm">
+                    <div class="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/20 dark:to-gray-800 p-6 shadow-sm">
                         <div class="flex items-center gap-2">
                             <span class="text-2xl" aria-hidden="true">✨</span>
-                            <h3 class="text-lg font-bold text-gray-900">Características clave</h3>
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">Características clave</h3>
                         </div>
-                        <ul class="mt-4 space-y-2.5 text-sm leading-6 text-gray-700">
+                        <ul class="mt-4 space-y-2.5 text-sm leading-6 text-gray-700 dark:text-gray-200">
                             <li class="flex gap-2">
-                                <span class="text-emerald-600">✓</span>
+                                <span class="text-emerald-600 dark:text-emerald-400">✓</span>
                                 <span>Multilingüe nativo, sin necesidad de pre-seleccionar idioma.</span>
                             </li>
                             <li class="flex gap-2">
-                                <span class="text-emerald-600">✓</span>
+                                <span class="text-emerald-600 dark:text-emerald-400">✓</span>
                                 <span>Resistente a ruido de fondo, acentos y mala calidad de grabación.</span>
                             </li>
                             <li class="flex gap-2">
-                                <span class="text-emerald-600">✓</span>
+                                <span class="text-emerald-600 dark:text-emerald-400">✓</span>
                                 <span>Devuelve <strong>segmentos con timestamps</strong>, ideales para sincronizar texto y audio.</span>
                             </li>
                             <li class="flex gap-2">
-                                <span class="text-emerald-600">✓</span>
+                                <span class="text-emerald-600 dark:text-emerald-400">✓</span>
                                 <span>Funciona localmente: tu audio nunca sale del equipo.</span>
                             </li>
                             <li class="flex gap-2">
-                                <span class="text-emerald-600">✓</span>
+                                <span class="text-emerald-600 dark:text-emerald-400">✓</span>
                                 <span>Open source, sin costo por minuto transcrito.</span>
                             </li>
                         </ul>
                     </div>
 
-                    <div class="rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-6 shadow-sm">
+                    <div class="rounded-2xl border border-rose-200 dark:border-rose-800 bg-gradient-to-br from-rose-50 to-white dark:from-rose-900/20 dark:to-gray-800 p-6 shadow-sm">
                         <div class="flex items-center gap-2">
                             <span class="text-2xl" aria-hidden="true">⚠️</span>
-                            <h3 class="text-lg font-bold text-gray-900">Limitaciones</h3>
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">Limitaciones</h3>
                         </div>
-                        <ul class="mt-4 space-y-2.5 text-sm leading-6 text-gray-700">
+                        <ul class="mt-4 space-y-2.5 text-sm leading-6 text-gray-700 dark:text-gray-200">
                             <li class="flex gap-2">
-                                <span class="text-rose-600">!</span>
+                                <span class="text-rose-600 dark:text-rose-400">!</span>
                                 <span>Puede <strong>alucinar</strong> texto en silencios prolongados o audios muy cortos.</span>
                             </li>
                             <li class="flex gap-2">
-                                <span class="text-rose-600">!</span>
+                                <span class="text-rose-600 dark:text-rose-400">!</span>
                                 <span>La precisión cae con varios hablantes simultáneos (no hace diarización por sí mismo).</span>
                             </li>
                             <li class="flex gap-2">
-                                <span class="text-rose-600">!</span>
+                                <span class="text-rose-600 dark:text-rose-400">!</span>
                                 <span>Los nombres propios poco frecuentes pueden transcribirse mal.</span>
                             </li>
                             <li class="flex gap-2">
-                                <span class="text-rose-600">!</span>
+                                <span class="text-rose-600 dark:text-rose-400">!</span>
                                 <span>Sin GPU compatible, los modelos grandes pueden tardar varios minutos por minuto de audio.</span>
                             </li>
                         </ul>
                     </div>
                 </section>
 
-                <footer class="rounded-xl border border-gray-200 bg-white p-5 text-xs text-gray-500 shadow-sm">
-                    <p class="font-semibold uppercase tracking-wider text-gray-700">Fuentes</p>
+                <footer class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-xs text-gray-500 dark:text-gray-400 shadow-sm">
+                    <p class="font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-200">Fuentes</p>
                     <p class="mt-2 leading-relaxed">
                         Documentación oficial de OpenAI Whisper —
                         <a
                             href="https://github.com/openai/whisper"
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="font-medium text-blue-700 underline hover:text-blue-900"
+                            class="font-medium text-blue-700 dark:text-blue-300 underline hover:text-blue-900 dark:hover:text-blue-200"
                         >github.com/openai/whisper</a>
                         — y el paper <em>Robust Speech Recognition via
                         Large-Scale Weak Supervision</em> (Radford et al.,

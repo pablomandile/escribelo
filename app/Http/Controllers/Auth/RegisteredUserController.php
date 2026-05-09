@@ -37,10 +37,16 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
+        $isFirstUser = User::query()->count() === 0;
+
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'role' => $isFirstUser ? 'admin' : 'user',
+            'approval_status' => $isFirstUser ? 'approved' : 'pending',
+            'approved_at' => $isFirstUser ? now() : null,
+            'audio_limit' => $isFirstUser ? null : 10,
         ]);
 
         event(new Registered($user));
