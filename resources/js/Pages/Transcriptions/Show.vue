@@ -3,9 +3,12 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DownloadFormatModal from '@/Components/DownloadFormatModal.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { marked } from 'marked';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
+
+marked.setOptions({ gfm: true, breaks: false });
 
 const { open: openConfirm } = useConfirm();
 const toast = useToast();
@@ -32,6 +35,48 @@ onBeforeUnmount(() => {
     window.removeEventListener('scroll', onScroll);
 });
 const showDownloadModal = ref(false);
+
+const editingName = ref(false);
+const nameDraft = ref('');
+const savingName = ref(false);
+const nameInputRef = ref(null);
+
+const startEditingName = async () => {
+    nameDraft.value = props.file.original_name || '';
+    editingName.value = true;
+    await nextTick();
+    nameInputRef.value?.focus();
+    nameInputRef.value?.select();
+};
+
+const cancelEditingName = () => {
+    editingName.value = false;
+    nameDraft.value = '';
+};
+
+const saveName = () => {
+    const trimmed = (nameDraft.value || '').trim();
+    if (trimmed === '' || trimmed === props.file.original_name) {
+        cancelEditingName();
+        return;
+    }
+    savingName.value = true;
+    router.patch(route('transcriptions.rename', props.file.id), {
+        original_name: trimmed,
+    }, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+            editingName.value = false;
+            toast.success('Nombre actualizado.');
+        },
+        onError: (errors) => {
+            toast.error(errors.original_name || 'No se pudo renombrar.');
+        },
+        onFinish: () => { savingName.value = false; },
+    });
+};
+
 const editingText = ref(false);
 const editedDraft = ref('');
 const savingText = ref(false);
@@ -108,6 +153,25 @@ const props = defineProps({
 
 const summaryStatus = computed(() => props.file.transcription?.summary_status ?? 'idle');
 const hasSummary = computed(() => !! props.file.transcription?.summary);
+const summaryHtml = computed(() => {
+    const raw = props.file.transcription?.summary ?? '';
+    if (! raw) return '';
+    return marked.parse(raw);
+});
+const summaryModel = computed(() => props.file.transcription?.summary_model);
+const backHref = computed(() => {
+    const folderId = props.file.folder?.id;
+    return folderId
+        ? route('dashboard', { folder: folderId })
+        : route('dashboard');
+});
+const summaryElapsedLabel = computed(() => {
+    const s = props.file.transcription?.summary_elapsed_seconds;
+    if (! s || s < 0) return null;
+    const minutes = Math.floor(s / 60);
+    const seconds = s % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+});
 
 const requestsPct = computed(() => {
     const limit = props.groqUsage?.limits?.requests_per_day ?? 1;
@@ -323,7 +387,7 @@ const statusLabel = (status) => ({
                 <div>
                     <Link
                         class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-400 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-                        :href="route('dashboard')"
+                        :href="backHref"
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -341,9 +405,56 @@ const statusLabel = (status) => ({
                         </svg>
                         Volver
                     </Link>
-                    <h2 class="mt-2 max-w-3xl truncate text-xl font-semibold leading-tight text-gray-900 dark:text-gray-100">
-                        {{ file.original_name }}
-                    </h2>
+                    <div class="mt-2 max-w-3xl">
+                        <div
+                            v-if="!editingName"
+                            class="group flex items-center gap-2"
+                        >
+                            <h2 class="truncate text-xl font-semibold leading-tight text-gray-900 dark:text-gray-100">
+                                {{ file.original_name }}
+                            </h2>
+                            <button
+                                type="button"
+                                class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 opacity-0 transition hover:bg-gray-100 hover:text-gray-700 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                                title="Renombrar"
+                                @click="startEditingName"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897L16.862 4.487zm0 0L19.5 7.125" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div v-else class="flex items-center gap-2">
+                            <input
+                                ref="nameInputRef"
+                                v-model="nameDraft"
+                                type="text"
+                                maxlength="255"
+                                :disabled="savingName"
+                                class="block w-full rounded-md border-gray-300 text-xl font-semibold leading-tight text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                                @keydown.enter.prevent="saveName"
+                                @keydown.esc.prevent="cancelEditingName"
+                            />
+                            <button
+                                type="button"
+                                class="inline-flex h-9 items-center rounded-md bg-blue-600 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
+                                :disabled="savingName"
+                                title="Guardar (Enter)"
+                                @click="saveName"
+                            >
+                                {{ savingName ? '...' : 'Guardar' }}
+                            </button>
+                            <button
+                                type="button"
+                                class="inline-flex h-9 items-center rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                                :disabled="savingName"
+                                title="Cancelar (Esc)"
+                                @click="cancelEditingName"
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 <div class="flex items-center gap-3">
                     <span class="text-sm font-semibold text-gray-600 dark:text-gray-400">
@@ -573,11 +684,17 @@ const statusLabel = (status) => ({
                                 </h3>
                                 <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                                     <template v-if="summaryProvider === 'ollama'">
-                                        🏠 Ollama local · <code class="rounded bg-gray-100 px-1 py-0.5 dark:bg-gray-700">{{ ollamaConfig.model }}</code>
+                                        🏠 Ollama local · <code class="rounded bg-gray-100 px-1 py-0.5 dark:bg-gray-700">{{ summaryModel || ollamaConfig.model }}</code>
                                     </template>
                                     <template v-else>
-                                        ☁️ Groq · <code class="rounded bg-gray-100 px-1 py-0.5 dark:bg-gray-700">llama-3.1-8b-instant</code>
+                                        ☁️ Groq · <code class="rounded bg-gray-100 px-1 py-0.5 dark:bg-gray-700">{{ summaryModel || 'llama-3.1-8b-instant' }}</code>
                                     </template>
+                                    <span
+                                        v-if="summaryElapsedLabel"
+                                        class="ml-1 text-[10px] text-gray-400 dark:text-gray-500"
+                                    >
+                                        · Generado en {{ summaryElapsedLabel }}
+                                    </span>
                                 </p>
                             </div>
                             <svg
@@ -673,12 +790,10 @@ const statusLabel = (status) => ({
                             v-else-if="hasSummary"
                             class="space-y-6"
                         >
-                            <div class="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50/60 p-4 dark:border-yellow-800 dark:bg-yellow-900/20">
-                                <span class="text-2xl leading-none" aria-hidden="true">💡</span>
-                                <p class="whitespace-pre-wrap text-[17px] leading-8 text-gray-800 dark:text-gray-100">
-                                    {{ props.file.transcription.summary }}
-                                </p>
-                            </div>
+                            <div
+                                class="summary-markdown text-[16px] leading-7 text-gray-800 dark:text-gray-100"
+                                v-html="summaryHtml"
+                            />
 
                             <div v-if="props.file.transcription.key_points?.length">
                                 <h4 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-700 dark:text-gray-200">
@@ -906,3 +1021,42 @@ const statusLabel = (status) => ({
         </Transition>
     </AuthenticatedLayout>
 </template>
+
+<style scoped>
+.summary-markdown :deep(h2) {
+    @apply mt-6 mb-3 border-b border-gray-200 pb-1 text-lg font-bold text-gray-900 dark:border-gray-700 dark:text-gray-100;
+}
+.summary-markdown :deep(h2:first-child) {
+    @apply mt-0;
+}
+.summary-markdown :deep(h3) {
+    @apply mt-5 mb-2 text-base font-semibold text-gray-900 dark:text-gray-100;
+}
+.summary-markdown :deep(p) {
+    @apply my-3 leading-7;
+}
+.summary-markdown :deep(ul) {
+    @apply my-3 list-disc space-y-1 pl-6;
+}
+.summary-markdown :deep(ol) {
+    @apply my-3 list-decimal space-y-1 pl-6;
+}
+.summary-markdown :deep(li) {
+    @apply leading-7;
+}
+.summary-markdown :deep(strong) {
+    @apply font-semibold text-gray-900 dark:text-gray-50;
+}
+.summary-markdown :deep(em) {
+    @apply italic;
+}
+.summary-markdown :deep(hr) {
+    @apply my-5 border-gray-200 dark:border-gray-700;
+}
+.summary-markdown :deep(code) {
+    @apply rounded bg-gray-100 px-1 py-0.5 text-sm dark:bg-gray-700;
+}
+.summary-markdown :deep(blockquote) {
+    @apply my-3 border-l-4 border-gray-300 pl-4 italic text-gray-700 dark:border-gray-600 dark:text-gray-300;
+}
+</style>

@@ -81,7 +81,7 @@ class WorkerProcessManager
             'ESCRIBELO_REMOTE_TOKEN' => $token,
             'ESCRIBELO_PID_FILE' => $pidFile,
             'OLLAMA_BASE_URL' => (string) config('services.ollama.base_url', 'http://localhost:11434'),
-            'OLLAMA_SUMMARY_MODEL' => (string) config('services.ollama.summary_model', 'gemma3:12b'),
+            'OLLAMA_SUMMARY_MODEL' => (string) config('services.ollama.summary_model', 'gemma4:e4b'),
             'PYTHONIOENCODING' => 'utf-8',
             'PYTHONUSERBASE' => $appData.'\\Python',
             'PATH' => (string) getenv('PATH'),

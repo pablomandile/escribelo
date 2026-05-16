@@ -47,7 +47,7 @@ return [
 
     'ollama' => [
         'base_url' => env('OLLAMA_BASE_URL', 'http://localhost:11434'),
-        'summary_model' => env('OLLAMA_SUMMARY_MODEL', 'gemma3:12b'),
+        'summary_model' => env('OLLAMA_SUMMARY_MODEL', 'gemma4:e4b'),
     ],
 
     'remote_worker' => [

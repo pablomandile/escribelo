@@ -55,6 +55,8 @@ class SummarizeTranscription implements ShouldQueue
             ]),
         ]);
 
+        $startedAt = microtime(true);
+
         try {
             $result = $summarizer->summarize(
                 $transcription->effectiveText(),
@@ -84,6 +86,7 @@ class SummarizeTranscription implements ShouldQueue
                     'model' => $result['model'],
                     'tokens_used' => $result['tokens_used'],
                     'provider' => $provider,
+                    'elapsed_seconds' => (int) round(microtime(true) - $startedAt),
                 ],
                 'summary_status' => 'completed',
                 'summary_generated_at' => now(),

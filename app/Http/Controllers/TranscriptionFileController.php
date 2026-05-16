@@ -44,15 +44,15 @@ class TranscriptionFileController extends Controller
 
         $filesQuery = TranscriptionFile::query()
             ->with(['folder.parent', 'transcription'])
-            ->whereBelongsTo($user)
-            ->latest();
+            ->whereBelongsTo($user);
 
         if ($folderId !== null) {
-            $filesQuery->where('transcription_folder_id', $folderId);
+            $filesQuery->where('transcription_folder_id', $folderId)
+                ->orderByRaw('LOWER(original_name) ASC');
         } elseif ($filter === 'unfiled') {
-            $filesQuery->whereNull('transcription_folder_id');
+            $filesQuery->whereNull('transcription_folder_id')->latest();
         } else {
-            $filesQuery->limit(20);
+            $filesQuery->latest()->limit(20);
         }
 
         $files = $filesQuery->get()
@@ -537,6 +537,24 @@ class TranscriptionFileController extends Controller
         return back()->with('status', 'Archivo movido.');
     }
 
+    public function rename(Request $request, TranscriptionFile $transcriptionFile): RedirectResponse
+    {
+        abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
+
+        $validated = $request->validate([
+            'original_name' => ['required', 'string', 'max:255'],
+        ]);
+
+        $newName = trim($validated['original_name']);
+        if ($newName === '') {
+            return back()->withErrors(['original_name' => 'El nombre no puede estar vacío.']);
+        }
+
+        $transcriptionFile->update(['original_name' => $newName]);
+
+        return back()->with('status', 'Nombre actualizado.');
+    }
+
     public function show(Request $request, TranscriptionFile $transcriptionFile): Response
     {
         abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
@@ -769,6 +787,12 @@ class TranscriptionFileController extends Controller
                 'summary_status' => $file->transcription->summary_status ?? 'idle',
                 'summary_error' => is_array($file->transcription->summary_metadata ?? null)
                     ? ($file->transcription->summary_metadata['error'] ?? null)
+                    : null,
+                'summary_model' => is_array($file->transcription->summary_metadata ?? null)
+                    ? ($file->transcription->summary_metadata['model'] ?? null)
+                    : null,
+                'summary_elapsed_seconds' => is_array($file->transcription->summary_metadata ?? null)
+                    ? ($file->transcription->summary_metadata['elapsed_seconds'] ?? null)
                     : null,
                 'summary_generated_at' => $file->transcription->summary_generated_at?->toIso8601String(),
                 'segments_count' => count($file->transcription->effectiveSegments() ?? []),

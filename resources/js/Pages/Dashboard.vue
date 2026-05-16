@@ -488,6 +488,49 @@ const closeDownload = () => {
     downloadFile.value = null;
 };
 
+const renamingFileId = ref(null);
+const renameDraft = ref('');
+const savingRename = ref(false);
+let renameInputEl = null;
+const setRenameInputEl = (el) => { renameInputEl = el; };
+
+const startRename = async (file) => {
+    renamingFileId.value = file.id;
+    renameDraft.value = file.original_name || '';
+    savingRename.value = false;
+    await nextTick();
+    renameInputEl?.focus();
+    renameInputEl?.select();
+};
+
+const cancelRename = () => {
+    renamingFileId.value = null;
+    renameDraft.value = '';
+};
+
+const saveRename = (file) => {
+    const trimmed = (renameDraft.value || '').trim();
+    if (trimmed === '' || trimmed === file.original_name) {
+        cancelRename();
+        return;
+    }
+    savingRename.value = true;
+    router.patch(route('transcriptions.rename', file.id), {
+        original_name: trimmed,
+    }, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+            renamingFileId.value = null;
+            toast.success('Nombre actualizado.');
+        },
+        onError: (errors) => {
+            toast.error(errors.original_name || 'No se pudo renombrar.');
+        },
+        onFinish: () => { savingRename.value = false; },
+    });
+};
+
 const deleteTranscription = async (file) => {
     const ok = await openConfirm({
         title: 'Eliminar transcripción',
@@ -1352,21 +1395,79 @@ const formatDate = (value) => {
                                         @dragend="onFileDragEnd"
                                     >
                                         <td class="max-w-md px-5 py-4">
-                                            <Link
-                                                v-if="file.status === 'completed'"
-                                                class="block truncate text-sm font-medium text-gray-900 hover:text-blue-700 dark:text-gray-100 dark:hover:text-blue-400"
-                                                :href="route('transcriptions.show', file.id)"
+                                            <div
+                                                v-if="renamingFileId === file.id"
+                                                class="flex items-center gap-1.5"
                                                 draggable="false"
+                                                @dragstart.prevent.stop
+                                                @mousedown.stop
                                             >
-                                                {{ file.original_name }}
-                                            </Link>
-                                            <span
+                                                <input
+                                                    :ref="setRenameInputEl"
+                                                    v-model="renameDraft"
+                                                    type="text"
+                                                    maxlength="255"
+                                                    :disabled="savingRename"
+                                                    class="block w-full rounded-md border-gray-300 px-2 py-1 text-sm font-medium text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                                                    @keydown.enter.prevent="saveRename(file)"
+                                                    @keydown.esc.prevent="cancelRename"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white transition hover:bg-blue-700 disabled:opacity-50"
+                                                    :disabled="savingRename"
+                                                    title="Guardar (Enter)"
+                                                    @click="saveRename(file)"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                                    :disabled="savingRename"
+                                                    title="Cancelar (Esc)"
+                                                    @click="cancelRename"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            <div
                                                 v-else
-                                                class="block cursor-not-allowed truncate text-sm font-medium text-gray-500 dark:text-gray-400"
-                                                :title="`Disponible cuando termine la transcripción (estado: ${file.status})`"
+                                                class="group flex items-center gap-1.5"
                                             >
-                                                {{ file.original_name }}
-                                            </span>
+                                                <Link
+                                                    v-if="file.status === 'completed'"
+                                                    class="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 hover:text-blue-700 dark:text-gray-100 dark:hover:text-blue-400"
+                                                    :href="route('transcriptions.show', file.id)"
+                                                    draggable="false"
+                                                >
+                                                    {{ file.original_name }}
+                                                </Link>
+                                                <span
+                                                    v-else
+                                                    class="min-w-0 flex-1 cursor-not-allowed truncate text-sm font-medium text-gray-500 dark:text-gray-400"
+                                                    :title="`Disponible cuando termine la transcripción (estado: ${file.status})`"
+                                                >
+                                                    {{ file.original_name }}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-gray-400 opacity-0 transition hover:bg-gray-100 hover:text-gray-700 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                                                    title="Renombrar"
+                                                    aria-label="Renombrar"
+                                                    draggable="false"
+                                                    @click.stop="startRename(file)"
+                                                    @mousedown.stop
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897L16.862 4.487zm0 0L19.5 7.125" />
+                                                    </svg>
+                                                </button>
+                                            </div>
                                             <p class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
                                                 <template v-if="file.folder">
                                                     📁
