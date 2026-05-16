@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
 import Dropdown from '@/Components/Dropdown.vue';
@@ -7,9 +7,28 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import ToastContainer from '@/Components/ToastContainer.vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 
 const showingNavigationDropdown = ref(false);
+
+const page = usePage();
+const isDark = computed(() => page.props.auth.user?.theme === 'dark');
+
+const toggleTheme = () => {
+    const next = isDark.value ? 'light' : 'dark';
+    // Aplicación optimista: cambiamos la clase ya para feedback inmediato.
+    // app.js re-sincroniza desde props.auth.user.theme tras la respuesta del PATCH.
+    if (next === 'dark') {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    router.patch(route('profile.theme'), { theme: next }, {
+        preserveScroll: true,
+        preserveState: true,
+    });
+};
 </script>
 
 <template>
@@ -65,6 +84,23 @@ const showingNavigationDropdown = ref(false);
                         </div>
 
                         <div class="hidden sm:ms-6 sm:flex sm:items-center">
+                            <!-- Theme toggle -->
+                            <button
+                                type="button"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                                :title="isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+                                :aria-label="isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+                                @click="toggleTheme"
+                            >
+                                <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="4" />
+                                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+                                </svg>
+                                <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                                </svg>
+                            </button>
+
                             <!-- Settings Dropdown -->
                             <div class="relative ms-3">
                                 <Dropdown align="right" width="48">
@@ -204,15 +240,32 @@ const showingNavigationDropdown = ref(false);
                     <div
                         class="border-t border-gray-200 pb-1 pt-4 dark:border-gray-700"
                     >
-                        <div class="px-4">
-                            <div
-                                class="text-base font-medium text-gray-800 dark:text-gray-200"
+                        <div class="flex items-center justify-between px-4">
+                            <div>
+                                <div
+                                    class="text-base font-medium text-gray-800 dark:text-gray-200"
+                                >
+                                    {{ $page.props.auth.user.name }}
+                                </div>
+                                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                                    {{ $page.props.auth.user.email }}
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                                :title="isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+                                :aria-label="isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+                                @click="toggleTheme"
                             >
-                                {{ $page.props.auth.user.name }}
-                            </div>
-                            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                {{ $page.props.auth.user.email }}
-                            </div>
+                                <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="4" />
+                                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+                                </svg>
+                                <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                                </svg>
+                            </button>
                         </div>
 
                         <div class="mt-3 space-y-1">

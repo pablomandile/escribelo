@@ -56,7 +56,8 @@ class ProcessTranscriptionFile implements ShouldQueue
 
         $transcriber = $this->resolveTranscriber();
 
-        $onEvent = function (array $payload) use ($file): void {
+        $loggedMilestones = [];
+        $onEvent = function (array $payload) use ($file, &$loggedMilestones): void {
             if (isset($payload['pid'])) {
                 $file->forceFill(['worker_pid' => (int) $payload['pid']])->saveQuietly();
                 return;
@@ -64,10 +65,19 @@ class ProcessTranscriptionFile implements ShouldQueue
             if (isset($payload['progress'])) {
                 $progress = max(0, min(100, (int) $payload['progress']));
                 $file->forceFill(['progress' => $progress])->saveQuietly();
-                Log::info('Whisper progress', [
-                    'transcription_file_id' => $file->id,
-                    'progress' => $progress,
-                ]);
+                // Loguear solo en hitos clave: primer evento (~inicio), 50% y 100%.
+                $milestone = match (true) {
+                    $progress >= 100 => 100,
+                    $progress >= 50  => 50,
+                    default          => 0,
+                };
+                if (! in_array($milestone, $loggedMilestones, true)) {
+                    $loggedMilestones[] = $milestone;
+                    Log::info('Whisper progress', [
+                        'transcription_file_id' => $file->id,
+                        'progress' => $progress,
+                    ]);
+                }
             }
             if (isset($payload['phase'])) {
                 Log::info('Whisper phase: '.$payload['phase'], [

@@ -51,6 +51,19 @@ class ProfileController extends Controller
         return Redirect::route('profile.edit')->with('status', 'Preferencias guardadas.');
     }
 
+    public function updateTheme(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'theme' => ['required', 'in:light,dark'],
+        ]);
+
+        $user = $request->user();
+        $settings = array_merge($user->settings ?? [], ['theme' => $validated['theme']]);
+        $user->forceFill(['settings' => $settings])->save();
+
+        return back();
+    }
+
     /**
      * Update the user's profile information.
      */
