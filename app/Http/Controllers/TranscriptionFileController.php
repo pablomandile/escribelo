@@ -564,7 +564,7 @@ class TranscriptionFileController extends Controller
         $user = $request->user();
         $usage = \App\Models\GroqUsage::todayFor($user->id);
         $limits = config('services.groq.free_tier');
-        $summaryProvider = $user->getSetting('summary_provider') ?? 'groq';
+        $summaryProvider = $this->effectiveSummaryProvider();
 
         return Inertia::render('Transcriptions/Show', [
             // Los segmentos vienen en el HTML inicial para que el transcript
@@ -588,6 +588,20 @@ class TranscriptionFileController extends Controller
                 'base_url' => config('services.ollama.base_url'),
             ],
         ]);
+    }
+
+    /**
+     * Proveedor de resumen efectivo, derivado del modo global de la app —
+     * misma lógica que SummarizeTranscription::resolveProvider():
+     *   local → Ollama (subproceso en esta máquina)
+     *   host  → worker remoto (Ollama vía Cloudflare Tunnel)
+     * El job NO usa el setting per-usuario 'summary_provider' para enrutar,
+     * así que replicamos su criterio acá para no exigir una key de Groq cuando
+     * en realidad vamos a resumir con Ollama.
+     */
+    private function effectiveSummaryProvider(): string
+    {
+        return \App\Models\AppSetting::get('mode', 'local') === 'host' ? 'remote' : 'ollama';
     }
 
     /**
@@ -616,9 +630,12 @@ class TranscriptionFileController extends Controller
             return back()->withErrors(['summary' => 'La transcripción aún no tiene texto disponible.']);
         }
 
-        $provider = $request->user()->getSetting('summary_provider') ?? 'groq';
+        $provider = $this->effectiveSummaryProvider();
         if ($provider === 'groq' && ! config('services.groq.key')) {
             return back()->withErrors(['summary' => 'Falta configurar GROQ_APIKEY en el servidor.']);
+        }
+        if ($provider === 'ollama' && ! $this->isOllamaAvailable()) {
+            return back()->withErrors(['summary' => 'Ollama no responde en '.config('services.ollama.base_url').'. Verificá que esté corriendo.']);
         }
 
         $transcription->update([
