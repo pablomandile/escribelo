@@ -51,6 +51,49 @@ const props = defineProps({
 const creatingFolderFor = ref(undefined);
 const folderNameInput = ref(null);
 
+// --- Árbol de carpetas: expandir/colapsar subcarpetas en el panel izquierdo ---
+const expandedFolders = ref(new Set());
+
+const isExpanded = (id) => expandedFolders.value.has(id);
+
+const toggleFolder = (id) => {
+    const next = new Set(expandedFolders.value);
+    if (next.has(id)) {
+        next.delete(id);
+    } else {
+        next.add(id);
+    }
+    expandedFolders.value = next;
+};
+
+const expandFolder = (id) => {
+    if (id == null || expandedFolders.value.has(id)) return;
+    const next = new Set(expandedFolders.value);
+    next.add(id);
+    expandedFolders.value = next;
+};
+
+// Abre la rama que contiene a la carpeta activa para que siempre quede visible.
+const revealActiveFolder = () => {
+    const activeId = props.activeFolderId;
+    if (activeId == null) return;
+    for (const folder of props.folders) {
+        if (folder.id === activeId) {
+            expandFolder(folder.id);
+            return;
+        }
+        for (const child of folder.children || []) {
+            if (child.id === activeId) {
+                expandFolder(folder.id);
+                return;
+            }
+        }
+    }
+};
+
+revealActiveFolder();
+watch(() => props.activeFolderId, revealActiveFolder);
+
 const LAST_MODEL_KEY = 'escribelo_last_model';
 const LAST_LANGUAGE_KEY = 'escribelo_last_language';
 
@@ -186,6 +229,7 @@ const folderForm = useForm({
 
 const startCreatingFolder = async (parentId = null) => {
     creatingFolderFor.value = parentId;
+    if (parentId != null) expandFolder(parentId); // abrir la rama para ver el nuevo tema
     folderForm.reset();
     folderForm.parent_id = parentId;
     folderForm.clearErrors();
@@ -837,10 +881,32 @@ const formatDate = (value) => {
                                     @dragleave="onFolderDragLeave(folder.id)"
                                     @drop="onFolderDrop($event, folder.id)"
                                 >
+                                    <button
+                                        v-if="folder.children?.length"
+                                        type="button"
+                                        class="ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 transition hover:bg-gray-200 hover:text-gray-700 dark:hover:bg-gray-600 dark:hover:text-gray-100"
+                                        :aria-expanded="isExpanded(folder.id)"
+                                        :title="isExpanded(folder.id) ? 'Cerrar subcarpetas' : 'Abrir subcarpetas'"
+                                        @click.stop="toggleFolder(folder.id)"
+                                    >
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            class="h-3.5 w-3.5 transition-transform"
+                                            :class="{ 'rotate-90': isExpanded(folder.id) }"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            stroke-width="2.5"
+                                        >
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                    <span v-else class="ml-1 w-5 shrink-0" aria-hidden="true"></span>
                                     <Link
                                         :href="route('dashboard', { folder: folder.id })"
-                                        class="flex flex-1 items-center gap-2 truncate px-2 py-2"
+                                        class="flex flex-1 items-center gap-2 truncate py-2 pl-1 pr-2"
                                         :title="folder.name"
+                                        @click="expandFolder(folder.id)"
                                     >
                                         <span aria-hidden="true">📁</span>
                                         <span class="truncate">{{ folder.name }}</span>
@@ -908,27 +974,29 @@ const formatDate = (value) => {
                                         </button>
                                     </div>
                                 </form>
-                                <div
-                                    v-for="child in folder.children"
-                                    :key="child.id"
-                                    class="ml-4 flex items-center justify-between border-l-2 border-gray-100 text-sm transition dark:border-gray-800"
-                                    :class="[
-                                        activeFolderId === child.id ? 'bg-gray-100 font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700',
-                                        { '!border-blue-400 ring-2 ring-blue-400 bg-blue-100 dark:bg-blue-900/40': dragOverFolderId === child.id },
-                                    ]"
-                                    @dragover="onFolderDragOver($event, child.id)"
-                                    @dragleave="onFolderDragLeave(child.id)"
-                                    @drop="onFolderDrop($event, child.id)"
-                                >
-                                    <Link
-                                        :href="route('dashboard', { folder: child.id })"
-                                        class="flex flex-1 items-center gap-1 truncate px-2 py-1.5"
-                                        :title="child.name"
+                                <template v-if="isExpanded(folder.id)">
+                                    <div
+                                        v-for="child in folder.children"
+                                        :key="child.id"
+                                        class="ml-4 flex items-center justify-between border-l-2 border-gray-100 text-sm transition dark:border-gray-800"
+                                        :class="[
+                                            activeFolderId === child.id ? 'bg-gray-100 font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700',
+                                            { '!border-blue-400 ring-2 ring-blue-400 bg-blue-100 dark:bg-blue-900/40': dragOverFolderId === child.id },
+                                        ]"
+                                        @dragover="onFolderDragOver($event, child.id)"
+                                        @dragleave="onFolderDragLeave(child.id)"
+                                        @drop="onFolderDrop($event, child.id)"
                                     >
-                                        <span class="truncate">↳ {{ child.name }}</span>
-                                    </Link>
-                                    <span class="pr-2 text-xs text-gray-400 dark:text-gray-500">{{ child.files_count }}</span>
-                                </div>
+                                        <Link
+                                            :href="route('dashboard', { folder: child.id })"
+                                            class="flex flex-1 items-center gap-1 truncate px-2 py-1.5"
+                                            :title="child.name"
+                                        >
+                                            <span class="truncate">↳ {{ child.name }}</span>
+                                        </Link>
+                                        <span class="pr-2 text-xs text-gray-400 dark:text-gray-500">{{ child.files_count }}</span>
+                                    </div>
+                                </template>
                             </template>
                         </div>
                     </section>

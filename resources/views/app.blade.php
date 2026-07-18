@@ -9,8 +9,7 @@
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
-        <link rel="icon" type="image/x-icon" href="/images/logoicono.ico">
-        <link rel="icon" type="image/png" href="/images/logoicono.png">
+        <link rel="icon" type="image/x-icon" href="/images/icono-escribelo.ico?v=2">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
