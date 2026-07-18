@@ -47,6 +47,7 @@ Route::middleware(['auth', 'approved'])->group(function () {
     Route::delete('/transcriptions/{transcriptionFile}/cleaned', [TranscriptionFileController::class, 'discardCleaned'])->whereNumber('transcriptionFile')->name('transcriptions.cleaned.discard');
     Route::patch('/transcriptions/{transcriptionFile}/folder', [TranscriptionFileController::class, 'updateFolder'])->whereNumber('transcriptionFile')->name('transcriptions.folder');
     Route::patch('/transcriptions/{transcriptionFile}/rename', [TranscriptionFileController::class, 'rename'])->whereNumber('transcriptionFile')->name('transcriptions.rename');
+    Route::post('/transcriptions/{transcriptionFile}/reconnect', [TranscriptionFileController::class, 'reconnectAudio'])->whereNumber('transcriptionFile')->name('transcriptions.reconnect');
     Route::post('/transcriptions/{transcriptionFile}/summary', [TranscriptionFileController::class, 'summarize'])->whereNumber('transcriptionFile')->name('transcriptions.summary');
     Route::delete('/transcriptions/{transcriptionFile}/summary', [TranscriptionFileController::class, 'cancelSummary'])->whereNumber('transcriptionFile')->name('transcriptions.summary.cancel');
     Route::patch('/transcriptions/{transcriptionFile}/text', [TranscriptionFileController::class, 'updateText'])->whereNumber('transcriptionFile')->name('transcriptions.text.update');

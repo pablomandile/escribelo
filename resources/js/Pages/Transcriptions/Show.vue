@@ -297,6 +297,27 @@ const discardCleaned = async () => {
     });
 };
 
+// Reconectar audio: sube el archivo por HTTP cuando no está disponible en el server
+// (transcripciones cuyo stored_path apunta a una ruta local inexistente acá).
+const reuploadInput = ref(null);
+const reuploading = ref(false);
+const triggerReupload = () => reuploadInput.value?.click();
+const onReuploadSelected = (e) => {
+    const f = e.target.files?.[0];
+    if (! f) return;
+    reuploading.value = true;
+    router.post(route('transcriptions.reconnect', props.file.id), { audio: f }, {
+        forceFormData: true,
+        preserveScroll: true,
+        onSuccess: () => toast.success('Audio reconectado.'),
+        onError: (errors) => toast.error(errors.audio || 'No se pudo reconectar el audio.'),
+        onFinish: () => {
+            reuploading.value = false;
+            if (reuploadInput.value) reuploadInput.value.value = '';
+        },
+    });
+};
+
 const segments = computed(() => props.file.transcription?.segments ?? []);
 const segmentsCount = computed(() => props.file.transcription?.segments_count ?? segments.value.length);
 
@@ -567,7 +588,7 @@ const statusLabel = (status) => ({
                             Reproducir audio
                         </h3>
                         <div
-                            v-if="file.has_cleaned_audio"
+                            v-if="file.has_cleaned_audio && file.audio_available"
                             class="inline-flex rounded-md border border-gray-200 bg-gray-50 p-0.5 text-xs dark:border-gray-700 dark:bg-gray-900/50"
                             role="tablist"
                             aria-label="Fuente de audio"
@@ -594,7 +615,7 @@ const statusLabel = (status) => ({
                             </button>
                         </div>
                     </div>
-                    <div class="flex items-stretch gap-3">
+                    <div v-if="file.audio_available" class="flex items-stretch gap-3">
                         <button
                             v-if="hasArtwork"
                             type="button"
@@ -629,9 +650,42 @@ const statusLabel = (status) => ({
                             Tu navegador no soporta la reproducción de audio.
                         </audio>
                     </div>
+                    <div
+                        v-else
+                        class="flex flex-col items-start gap-3 rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-900/40"
+                    >
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                El audio no está disponible en el servidor
+                            </p>
+                            <p class="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                                La transcripción está guardada, pero el archivo de audio no se
+                                encuentra en el servidor. Resubí el mismo archivo para volver a
+                                escucharlo (no se vuelve a transcribir).
+                            </p>
+                        </div>
+                        <input
+                            ref="reuploadInput"
+                            type="file"
+                            accept=".mp3,.wav,.m4a,.mp4,.webm,.ogg,.oga,.flac,.aac,audio/*"
+                            class="hidden"
+                            @change="onReuploadSelected"
+                        >
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            :disabled="reuploading"
+                            @click="triggerReupload"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+                            </svg>
+                            {{ reuploading ? 'Subiendo…' : 'Resubir archivo' }}
+                        </button>
+                    </div>
 
                     <div
-                        v-if="file.has_cleaned_audio"
+                        v-if="file.has_cleaned_audio && file.audio_available"
                         class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/30"
                     >
                         <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">

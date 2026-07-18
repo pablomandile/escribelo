@@ -207,6 +207,53 @@ class TranscriptionFileController extends Controller
         return back()->with('status', 'Archivos enviados a transcripción.');
     }
 
+    /**
+     * Reconecta el audio de una transcripción existente subiendo el archivo por HTTP.
+     * Útil cuando stored_path apunta a una ruta local que no existe en este server:
+     * copia el mp3 al storage de la app (ruta portable) y no re-transcribe.
+     */
+    public function reconnectAudio(Request $request, TranscriptionFile $transcriptionFile): RedirectResponse
+    {
+        abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
+
+        $validated = $request->validate([
+            'audio' => ['required', 'file', 'max:512000', 'mimes:mp3,wav,m4a,mp4,webm,ogg,oga,flac,aac'],
+        ]);
+
+        $user = $request->user();
+        $uploaded = $validated['audio'];
+        $extension = $uploaded->getClientOriginalExtension() ?: $uploaded->extension();
+
+        // Copiar al storage de la app (ruta relativa portable), igual que store().
+        $storedPath = $uploaded->storeAs(
+            'audios/'.$user->id,
+            Str::uuid().($extension ? '.'.$extension : ''),
+            'local',
+        );
+
+        // Borrar el archivo anterior sólo si era una ruta relativa nuestra (no las rutas
+        // absolutas externas del usuario, que no administramos). Misma lógica que destroy().
+        $oldPath = (string) $transcriptionFile->stored_path;
+        $oldIsAbsolute = preg_match('/^([A-Za-z]:[\\\\\/]|\/)/', $oldPath) === 1;
+        if (! $oldIsAbsolute && $oldPath !== '' && $oldPath !== $storedPath) {
+            Storage::disk('local')->delete($oldPath);
+        }
+
+        // El audio limpio anterior corresponde al archivo viejo: lo descartamos.
+        if ($transcriptionFile->cleaned_audio_path) {
+            Storage::disk('local')->delete($transcriptionFile->cleaned_audio_path);
+        }
+
+        $transcriptionFile->update([
+            'stored_path' => $storedPath,
+            'mime_type' => $uploaded->getMimeType(),
+            'size' => $uploaded->getSize() ?: 0,
+            'cleaned_audio_path' => null,
+        ]);
+
+        return back()->with('status', 'Audio reconectado. Ya podés reproducirlo.');
+    }
+
     public function destroy(Request $request, TranscriptionFile $transcriptionFile): RedirectResponse
     {
         abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
@@ -751,19 +798,22 @@ class TranscriptionFileController extends Controller
 
     private function serializeFile(TranscriptionFile $file, bool $includeSegments = false, bool $includeAudioMetadata = false): array
     {
+        // Disponibilidad del audio: ¿existe el archivo físico en este server? Las
+        // transcripciones creadas desde rutas locales guardan un path absoluto que no
+        // existe fuera de la máquina donde se subieron (por eso el player queda muerto).
+        $absolute = $file->absolutePath();
+        $audioAvailable = is_file($absolute) && is_readable($absolute);
+
         // Sólo leemos ID3 cuando estamos en la vista detalle — es relativamente costoso.
         $audioMetadata = null;
-        if ($includeAudioMetadata) {
-            $absolute = $file->absolutePath();
-            if (is_file($absolute) && is_readable($absolute)) {
-                try {
-                    $audioMetadata = app(\App\Services\Audio\AudioMetadataReader::class)->read($absolute);
-                } catch (\Throwable $e) {
-                    \Illuminate\Support\Facades\Log::warning('Failed to read audio metadata', [
-                        'file_id' => $file->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
+        if ($includeAudioMetadata && $audioAvailable) {
+            try {
+                $audioMetadata = app(\App\Services\Audio\AudioMetadataReader::class)->read($absolute);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to read audio metadata', [
+                    'file_id' => $file->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 
@@ -778,6 +828,7 @@ class TranscriptionFileController extends Controller
             'status' => $file->status,
             'progress' => (int) $file->progress,
             'has_cleaned_audio' => (bool) $file->cleaned_audio_path,
+            'audio_available' => $audioAvailable,
             'error_message' => $file->error_message,
             'processed_at' => $file->processed_at?->toIso8601String(),
             'created_at' => $file->created_at?->toIso8601String(),
