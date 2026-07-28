@@ -37,8 +37,9 @@ class SettingsController extends Controller
             ],
             'gpu' => $this->detectLocalGpu(),
             'remoteWorker' => [
-                'configured' => (bool) config('services.remote_worker.base_url'),
-                'base_url' => config('services.remote_worker.base_url'),
+                'configured' => AppSetting::remoteWorkerUrl() !== '',
+                'base_url' => AppSetting::remoteWorkerUrl(),
+                'url_overridden' => trim((string) AppSetting::get('remote_worker_url')) !== '',
                 'health' => $remoteHealth,
                 'process' => $this->worker->status(),
             ],
@@ -67,6 +68,20 @@ class SettingsController extends Controller
         AppSetting::set('mode', $validated['mode']);
 
         return back()->with('success', "Modo cambiado a {$validated['mode']}.");
+    }
+
+    public function updateRemoteWorkerUrl(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'url' => ['nullable', 'string', 'url', 'max:255'],
+        ]);
+
+        $url = isset($validated['url']) ? rtrim(trim($validated['url']), '/') : '';
+        AppSetting::set('remote_worker_url', $url);
+
+        return back()->with('success', $url !== ''
+            ? 'URL del worker remoto actualizada.'
+            : 'URL reseteada: vuelve a usar el valor del .env.');
     }
 
     public function refreshGpu(): RedirectResponse
@@ -172,7 +187,7 @@ class SettingsController extends Controller
 
     private function probeRemoteWorker(): array
     {
-        $baseUrl = config('services.remote_worker.base_url');
+        $baseUrl = AppSetting::remoteWorkerUrl();
         $token = config('services.remote_worker.token');
         $timeout = (int) config('services.remote_worker.health_timeout', 5);
 

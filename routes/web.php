@@ -75,6 +75,7 @@ Route::middleware(['auth', 'approved'])->group(function () {
         Route::get('/settings', [AdminSettingsController::class, 'edit'])->name('settings.edit');
         Route::patch('/settings/mode', [AdminSettingsController::class, 'updateMode'])->name('settings.mode');
         Route::patch('/settings/whisper-timeout', [AdminSettingsController::class, 'updateWhisperTimeout'])->name('settings.whisperTimeout');
+        Route::patch('/settings/remote-worker-url', [AdminSettingsController::class, 'updateRemoteWorkerUrl'])->name('settings.remoteWorkerUrl');
         Route::post('/settings/refresh-gpu', [AdminSettingsController::class, 'refreshGpu'])->name('settings.refreshGpu');
 
         Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');

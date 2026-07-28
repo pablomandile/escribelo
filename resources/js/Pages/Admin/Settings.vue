@@ -28,6 +28,18 @@ const submitMode = () => {
     });
 };
 
+const remoteUrlDraft = ref(props.remoteWorker.base_url || '');
+const savingRemoteUrl = ref(false);
+const submitRemoteUrl = () => {
+    savingRemoteUrl.value = true;
+    router.patch(route('admin.settings.remoteWorkerUrl'), { url: (remoteUrlDraft.value || '').trim() || null }, {
+        preserveScroll: true,
+        onSuccess: () => toast.success('URL del worker guardada.'),
+        onError: (e) => toast.error(e.url || 'No se pudo guardar la URL.'),
+        onFinish: () => { savingRemoteUrl.value = false; },
+    });
+};
+
 const healthBadge = computed(() => {
     const h = props.remoteWorker.health;
     if (! h) return { label: 'Desconocido', color: 'bg-gray-100 text-gray-600' };
@@ -668,6 +680,35 @@ onBeforeUnmount(() => {
                     <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="healthBadge.color">
                         {{ healthBadge.label }}
                     </span>
+                </div>
+
+                <div class="mt-4 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+                    <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200">
+                        URL del worker (túnel Cloudflare)
+                    </label>
+                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                        Pegá la URL del quick tunnel cada vez que lo reinicies. Se guarda en la app y pisa el <code>.env</code> (sin recachear).
+                    </p>
+                    <div class="mt-2 flex flex-col gap-2 sm:flex-row">
+                        <input
+                            v-model="remoteUrlDraft"
+                            type="url"
+                            placeholder="https://xxxx.trycloudflare.com"
+                            class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                            @keydown.enter.prevent="submitRemoteUrl"
+                        >
+                        <button
+                            type="button"
+                            class="inline-flex shrink-0 items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                            :disabled="savingRemoteUrl"
+                            @click="submitRemoteUrl"
+                        >
+                            {{ savingRemoteUrl ? 'Guardando…' : 'Guardar' }}
+                        </button>
+                    </div>
+                    <p v-if="remoteWorker.url_overridden" class="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
+                        Guardada en la app (override del <code>.env</code>).
+                    </p>
                 </div>
 
                 <dl class="mt-4 space-y-2 text-sm">

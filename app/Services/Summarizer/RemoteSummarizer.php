@@ -2,6 +2,7 @@
 
 namespace App\Services\Summarizer;
 
+use App\Models\AppSetting;
 use Illuminate\Support\Facades\Http;
 
 class RemoteSummarizer implements SummarizerInterface
@@ -12,7 +13,7 @@ class RemoteSummarizer implements SummarizerInterface
             $onProgress(['phase' => 'single', 'chunk' => 1, 'total' => 1]);
         }
 
-        $baseUrl = rtrim((string) config('services.remote_worker.base_url'), '/');
+        $baseUrl = rtrim(AppSetting::remoteWorkerUrl(), '/');
         $token = (string) config('services.remote_worker.token');
         $timeout = (int) config('services.remote_worker.timeout', 14400);
 

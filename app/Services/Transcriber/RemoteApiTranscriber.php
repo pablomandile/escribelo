@@ -17,7 +17,7 @@ class RemoteApiTranscriber implements TranscriberInterface
         ?string $cleanedAudioOutputPath,
         callable $onEvent,
     ): void {
-        $baseUrl = rtrim((string) config('services.remote_worker.base_url'), '/');
+        $baseUrl = rtrim(AppSetting::remoteWorkerUrl(), '/');
         $token = (string) config('services.remote_worker.token');
         $timeout = AppSetting::whisperTimeout();
         $healthTimeout = (int) config('services.remote_worker.health_timeout', 5);

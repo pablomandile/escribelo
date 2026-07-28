@@ -46,6 +46,21 @@ class AppSetting extends Model
         return (int) config('transcription.timeout', 14400);
     }
 
+    /**
+     * URL efectiva del worker remoto. Editable desde el panel admin
+     * (AppSetting 'remote_worker_url'); si está vacía cae al .env/config.
+     * Permite cambiar la URL del túnel sin tocar el .env ni recachear config.
+     */
+    public static function remoteWorkerUrl(): string
+    {
+        $configured = static::get('remote_worker_url');
+        if (is_string($configured) && trim($configured) !== '') {
+            return trim($configured);
+        }
+
+        return (string) config('services.remote_worker.base_url', '');
+    }
+
     private static function cacheKey(string $key): string
     {
         return 'app_settings:'.$key;
