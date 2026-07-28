@@ -21,6 +21,7 @@ import base64
 import contextlib
 import json
 import os
+import re
 import tempfile
 from typing import Optional
 
@@ -206,6 +207,29 @@ SUMMARY_SYSTEM_PROMPT = (
 )
 
 
+def _parse_summary_json(content: str):
+    """Rescata el JSON del modelo aunque venga con texto extra o algo malformado
+    (gemma a veces mete un prefacio o cierra mal el JSON en textos largos/repetitivos)."""
+    content = (content or "").strip()
+    if not content:
+        return None
+    try:
+        obj = json.loads(content)
+        if isinstance(obj, dict):
+            return obj
+    except json.JSONDecodeError:
+        pass
+    match = re.search(r"\{[\s\S]*\}", content)
+    if match:
+        try:
+            obj = json.loads(match.group(0))
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
 @app.post("/summarize")
 async def summarize(payload: dict, authorization: Optional[str] = Header(None)) -> JSONResponse:
     _check_token(authorization)
@@ -224,7 +248,19 @@ async def summarize(payload: dict, authorization: Optional[str] = Header(None)) 
         ],
         "stream": False,
         "format": "json",
-        "options": {"temperature": 0.3, "num_predict": 1024},
+        "options": {
+            # Mismo criterio que OllamaSummarizer local: repeat_penalty saca al
+            # modelo de los loops de repetición (lo que arruinaba el JSON en textos
+            # largos/repetitivos), num_ctx evita el truncado silencioso del input y
+            # num_predict deja espacio para cerrar el JSON completo.
+            "temperature": 0.5,
+            "repeat_penalty": 1.5,
+            "top_p": 0.9,
+            "top_k": 40,
+            "num_predict": 2048,
+            "num_ctx": 8192,
+        },
+        "keep_alive": "30m",
     }
 
     try:
@@ -237,11 +273,10 @@ async def summarize(payload: dict, authorization: Optional[str] = Header(None)) 
         raise HTTPException(status_code=502, detail=f"Ollama HTTP {r.status_code}: {r.text}")
 
     data = r.json()
-    content = (data.get("message") or {}).get("content") or "{}"
+    content = (data.get("message") or {}).get("content") or ""
 
-    try:
-        parsed = json.loads(content)
-    except json.JSONDecodeError:
+    parsed = _parse_summary_json(content)
+    if parsed is None:
         raise HTTPException(status_code=502, detail="Ollama returned non-JSON content")
 
     tokens_used = int(data.get("prompt_eval_count", 0)) + int(data.get("eval_count", 0))
