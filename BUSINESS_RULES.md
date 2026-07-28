@@ -46,8 +46,9 @@ Tres ramas en [GoogleAuthController](app/Http/Controllers/Auth/GoogleAuthControl
   - `null` = ilimitado.
   - Un valor entero N = el usuario no puede tener más de N archivos.
   - Setear desde `/admin/users` (`PATCH /admin/users/{id}/limit`).
-- **Chequeo del límite**: [User::canUploadMore()](app/Models/User.php) compara `audioUsage()` (count de `transcription_files`) contra `audio_limit`.
-- ⚠️ **Bug conocido**: el chequeo se aplica en `POST /transcriptions/from-paths` pero **no** en `POST /transcriptions` (upload directo). Listado en deuda técnica como prioridad alta.
+- **Chequeo del límite**: [User::canUploadMore()](app/Models/User.php) compara `audioUsage()` (count de `transcription_files`) contra `audio_limit`. Se aplica tanto en `POST /transcriptions` (upload directo) como en `POST /transcriptions/from-paths`.
+- **Cupos restantes por lote**: si el usuario sube varios archivos a la vez, el lote entero se rechaza cuando excede los cupos que le quedan (`audio_limit - audioUsage()`), con mensaje indicando cuántos quedan.
+- Borrar solo el audio (`DELETE /transcriptions/{id}/audio-file`) **no** libera cupo: el registro `transcription_files` sigue existiendo y es lo que se cuenta.
 
 ### Por archivo
 
@@ -83,6 +84,8 @@ tiny, base, small, medium, large, large-v2, large-v3, turbo
 
 Default del sistema: `WHISPER_MODEL` env (default `small`). El usuario elige modelo por upload; el último elegido se persiste en `localStorage` del navegador como `escribelo_last_model` para conveniencia.
 
+**Picker de la UI vs backend**: la UI (dashboard y botón "Re-transcribir") ofrece solo `AVAILABLE_MODELS = [small, medium, large-v3]` ([TranscriptionFileController:20](app/Http/Controllers/TranscriptionFileController.php#L20)); el backend valida contra la lista completa de arriba.
+
 ---
 
 ## 4. Carpetas
@@ -114,7 +117,7 @@ queued
               └──► waiting_for_worker (modo host, worker remoto offline → re-dispatch en 60s)
 ```
 
-- **`queued`** se setea en `TranscriptionFileController::store()` al crear el archivo.
+- **`queued`** se setea en `TranscriptionFileController::store()` al crear el archivo, y también al **re-transcribir** (`retranscribe()` vuelve un archivo `completed`/`failed` a `queued` con el nuevo modelo).
 - **`enhancing`** / **`processing`** se setea en `ProcessTranscriptionFile::handle()` al empezar el job. `progress` (0–100) se actualiza desde el callback que recibe los eventos del worker.
 - **`completed`** se setea cuando se parseó el JSON y se persistieron `Transcription` + segments. `processed_at = now()`.
 - **`failed`** queda con `error_message` legible.
@@ -143,8 +146,9 @@ processing
 
 - Cada usuario tiene un setting `summary_provider` en `users.settings` JSON (default `'groq'`).
 - Valores: `'groq'` o `'ollama'`. La elección se hace en `/profile`.
-- En modo `host`, se ignora la preferencia del usuario y se usa `RemoteSummarizer` (el worker remoto resume internamente).
+- En modo `host`, se ignora la preferencia del usuario y se usa `RemoteSummarizer` (el worker remoto resume con su Ollama local). El provider efectivo lo resuelve `effectiveSummaryProvider()`: `host → 'remote'`, `local → 'ollama'`. La vista de la transcripción muestra con qué se generó ("Ollama en worker remoto (tu PC) vía túnel" en host).
 - **Fallback**: si elige `groq` pero `GROQ_APIKEY` no está configurada, se muestra un banner pidiéndole que cambie a Ollama desde `/profile`.
+- **Precondición**: antes de encolar el resumen se verifica que el provider efectivo esté disponible (ping cacheado 60s a Ollama en local; en host el job reintenta si el worker no responde).
 
 ### Estructura del resumen
 
@@ -165,6 +169,10 @@ Reglas estrictas del prompt:
 - Idioma respetando el del audio.
 - `key_points` se devuelve como array vacío `[]` (los puntos ya están dentro del markdown).
 - Para textos largos: chunking con map-reduce. Cada chunk produce notas; un paso final consolida en la estructura completa.
+
+### Resumen remoto (modo host)
+
+El worker remoto usa su propio prompt ([whisper_worker/api_server.py](whisper_worker/api_server.py)) con un formato **más simple** que el local: `summary` de 4–8 oraciones en texto plano + `key_points` de 6–12 frases cortas independientes (no el markdown estructurado de arriba). Diferencia conocida; enriquecerlo para igualar al local es un follow-up pendiente. Transporte: [RemoteSummarizer](app/Services/Summarizer/RemoteSummarizer.php) chunkea a 25k chars con map-reduce, parsea la respuesta NDJSON en streaming del worker y reintenta hasta 3 veces los 502/503/504 transitorios del túnel.
 
 ---
 
@@ -195,7 +203,35 @@ Reglas estrictas del prompt:
 
 ---
 
-## 9. Export
+## 9. Gestión del archivo de audio (borrar / resubir / re-transcribir)
+
+El audio físico y la transcripción tienen ciclos de vida independientes: se puede conservar la transcripción sin el audio en el server, y reconectar el audio más adelante.
+
+### Borrar solo el audio (liberar espacio)
+
+- Botón "Borrar audio" → `DELETE /transcriptions/{id}/audio-file`.
+- Borra el archivo físico del storage (y el cleaned si existe) pero **conserva la transcripción, los segmentos y el resumen**.
+- Solo borra archivos con path relativo (administrados por la app); los paths absolutos de la biblioteca local del usuario no se tocan.
+- Deja `stored_path = ''` → el serializer expone `audio_available = false` y la UI deshabilita reproducir/re-transcribir y ofrece "Resubir archivo".
+
+### Resubir / reconectar el audio
+
+- Botón "Resubir archivo" → `POST /transcriptions/{id}/reconnect` (multipart, mismas validaciones de formato/tamaño que el upload).
+- Casos de uso: la fila fue creada referenciando un path local que no existe en este server (típico tras un deploy a hosting), o el audio se borró para liberar espacio.
+- Copia el archivo a `audios/{user_id}/` (path relativo portable), borra el anterior solo si era administrado por la app, y descarta el cleaned viejo (correspondía al archivo anterior).
+- **No re-transcribe**: la transcripción existente queda como está.
+
+### Re-transcribir con otro modelo
+
+- Botón "Re-transcribir" (junto a "Editar" en la vista de la transcripción) → `POST /transcriptions/{id}/retranscribe` con el modelo elegido.
+- Requiere el audio disponible en el server; si no está, se rechaza pidiendo resubirlo primero.
+- Vuelve el archivo a `queued`; el job pisa la transcripción anterior (`updateOrCreate` + segments recreados).
+- Caso de uso: `small` transcribió mal → reintentar con `medium` o `large-v3`.
+- ⚠️ `edited_text`, `effective_segments` y `summary` **no** se limpian: quedan los de la corrida anterior (ver edge cases).
+
+---
+
+## 10. Export
 
 `GET /transcriptions/{id}/download/{format}` con `format ∈ {txt, srt, pdf}`.
 
@@ -206,7 +242,7 @@ Reglas estrictas del prompt:
 
 ---
 
-## 10. Audio library (filesystem browser)
+## 11. Audio library (filesystem browser)
 
 - Endpoint: `GET /library/browse?path=...` ([AudioLibraryController](app/Http/Controllers/AudioLibraryController.php)).
 - Sirve para usuarios que tienen una colección de audios ya en disco y no quieren duplicarlos al storage de la app.
@@ -215,7 +251,7 @@ Reglas estrictas del prompt:
 
 ---
 
-## 11. Permisos y ownership
+## 12. Permisos y ownership
 
 - Todas las rutas de recurso verifican que `recurso.user_id === auth()->id()` antes de cualquier operación (excepto admin endpoints).
 - Las queries usan `whereBelongsTo($user)` consistentemente.
@@ -224,22 +260,24 @@ Reglas estrictas del prompt:
 
 ---
 
-## 12. Modo local vs host (admin)
+## 13. Modo local vs host (admin)
 
 - Se cambia desde `/admin/settings` con `PATCH /admin/settings/mode`.
-- Persiste en `app_settings.mode` con caché forever.
+- Persiste en `app_settings.mode` con caché forever. Se comparte al frontend como prop `appMode` → el dashboard muestra un badge de dónde se procesa (local vs worker remoto vía túnel).
 - Efectos al cambiar a `local`:
   - `ProcessTranscriptionFile` usa `LocalProcessTranscriber` (subprocess Python).
   - `SummarizeTranscription` usa `OllamaSummarizer` (a menos que el usuario haya elegido Groq).
 - Efectos al cambiar a `host`:
   - `ProcessTranscriptionFile` usa `RemoteApiTranscriber`.
-  - `SummarizeTranscription` usa `RemoteSummarizer`.
+  - `SummarizeTranscription` usa `RemoteSummarizer` (siempre; la preferencia Ollama/Groq del usuario no aplica).
   - Si el worker remoto cae, los jobs entran en `waiting_for_worker` y se reintentan cada 60s.
+- **URL del worker remoto**: editable desde `/admin/settings` (`PATCH /admin/settings/remote-worker-url`, AppSetting `remote_worker_url`). Pisa al `.env` sin recachear config — pensado para el quick tunnel de Cloudflare, cuya URL cambia en cada reinicio de `cloudflared`. Vaciar el campo = volver al `.env`.
+- **Paneles de procesos**: los bloques de start/stop del worker Python y de cloudflared en `/admin/settings` solo tienen sentido en la máquina que corre esos procesos; en hosting se ocultan con `REMOTE_WORKER_MANAGE_LOCALLY=false` y `CLOUDFLARED_MANAGE_LOCALLY=false`.
 - ⚠️ Después de cambiar el modo (o cualquier config) **hay que reiniciar el queue worker**, porque tiene la config booteada en memoria.
 
 ---
 
-## 13. Whisper timeout
+## 14. Whisper timeout
 
 - Default global: `WHISPER_TIMEOUT` env (default `1800` segundos / 30 min).
 - Override por admin: `PATCH /admin/settings/whisper-timeout` lo guarda en `app_settings.whisper_timeout`.
@@ -247,7 +285,7 @@ Reglas estrictas del prompt:
 
 ---
 
-## 14. Flujos críticos resumidos
+## 15. Flujos críticos resumidos
 
 ### Onboarding de un nuevo usuario
 
@@ -289,9 +327,11 @@ Reglas estrictas del prompt:
 
 ---
 
-## 15. Reglas de UI relevantes
+## 16. Reglas de UI relevantes
 
-- **Tema (claro/oscuro)**: persistente en `users.settings.theme`, sincronizado con `localStorage` desde `app.js`. Aplica clase `dark` al `<html>`.
+- **Tema (claro/oscuro)**: persistente en `users.settings.theme`, sincronizado con `localStorage` desde `app.js`. Aplica clase `dark` al `<html>`. En modo oscuro el nav usa el logo alternativo (`logo-oscuro.png`).
+- **Árbol de carpetas colapsable**: en el dashboard, el click en una carpeta además de cargar sus archivos abre/cierra el subárbol de subcarpetas.
+- **Badge de procesamiento**: el dashboard indica si la transcripción corre en esta máquina o en el worker remoto vía túnel (prop `appMode`).
 - **Idioma del audio**: el usuario lo elige en el upload (default último usado en `localStorage.escribelo_last_language`). Whisper lo recibe como hint; igualmente detecta autom.
 - **Polling de jobs**: en el dashboard cada N segundos, en `Transcriptions/Show` cada 2.5s solo cuando `summary_status ∈ {queued, processing}`.
 - **Karaoke**: click en cualquier palabra del transcript reproduce desde el `start_seconds` del segmento, con un lead-in de 0.25s para que la palabra no quede recortada al inicio.
@@ -300,7 +340,7 @@ Reglas estrictas del prompt:
 
 ---
 
-## 16. Edge cases conocidos
+## 17. Edge cases conocidos
 
 - **Audio con `clean_audio=true` cuyo denoise falla**: el job marca `failed` y no continúa con la transcripción. El usuario debe re-disparar sin denoise.
 - **Worker remoto vivo pero lento**: el timeout del HTTP es `services.remote_worker.timeout` (default 14400s = 4h). Para audios muy largos puede no alcanzar.
@@ -308,3 +348,5 @@ Reglas estrictas del prompt:
 - **Resumen cancelado a último momento**: si el cancel llega después del HTTP exitoso al LLM, el job descarta el resultado pero los tokens ya fueron consumidos (y registrados en `groq_usage`).
 - **Re-link de Google a otro email**: hoy no se permite cambiar el `google_id` de una cuenta una vez linkeada. Habría que desvincular vía DB.
 - **Carpeta borrada con archivos adentro**: los archivos quedan con `transcription_folder_id = null` (van al feed "sin ordenar"). El usuario lo ve antes de confirmar.
+- **Re-transcribir con texto editado o resumen previos**: la nueva corrida pisa `text` y los segments, pero `edited_text`, `effective_segments` y `summary` quedan de la corrida anterior. Como la UI prioriza `edited_text`, el texto visible puede no reflejar la nueva transcripción hasta "Restaurar al original"; el resumen viejo hay que regenerarlo a mano.
+- **502 transitorio del túnel Cloudflare**: típico justo después de reiniciar el worker (conexiones keep-alive reusadas). `RemoteSummarizer` reintenta solo; el worker debe correr con `--timeout-keep-alive 120`. Ojo: el request "fallido" pudo haberse procesado igual en la PC (tokens/GPU consumidos).

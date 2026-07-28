@@ -45,7 +45,9 @@ Hay dos **modos de operación** controlados por `app_settings.mode`:
 - **`local`** (default): Laravel spawnea `whisper_worker/transcribe.py` como subproceso por cada job, y habla con Ollama en `localhost:11434`. Todo el cómputo es local.
 - **`host`**: Laravel hace HTTP a un worker FastAPI ([whisper_worker/api_server.py](whisper_worker/api_server.py)) expuesto típicamente via Cloudflare Tunnel. Útil cuando la GPU vive en otra máquina.
 
-El selector de modo está en el admin panel y se persiste en la tabla `app_settings`. El helper [escribelo_mode()](app/helpers.php) lo lee con caché forever (invalidada al `set`).
+El selector de modo está en el admin panel y se persiste en la tabla `app_settings`. El helper [escribelo_mode()](app/helpers.php) lo lee con caché forever (invalidada al `set`). `HandleInertiaRequests` comparte el modo como prop `appMode` — el dashboard lo usa para mostrar un badge de dónde se procesa cada transcripción.
+
+En modo host, la URL efectiva del worker la resuelve [AppSetting::remoteWorkerUrl()](app/Models/AppSetting.php): el AppSetting `remote_worker_url` (editable desde `/admin/settings`, pensado para el quick tunnel de Cloudflare cuya URL cambia en cada reinicio) pisa al `.env`; si está vacío se usa `REMOTE_WORKER_URL`. Los paneles de start/stop de worker/cloudflared se ocultan con `REMOTE_WORKER_MANAGE_LOCALLY=false` / `CLOUDFLARED_MANAGE_LOCALLY=false` (hosting que solo consume la URL remota).
 
 ---
 
@@ -99,8 +101,8 @@ Definido en [routes/web.php](routes/web.php). Hay tres clusters:
 | Recurso | Endpoints clave |
 |---|---|
 | Dashboard | `GET /escribelo` |
-| Transcripciones | `POST /transcriptions`, `POST /transcriptions/from-paths`, `GET /transcriptions/{id}`, `PATCH /transcriptions/{id}/rename`, `PATCH /transcriptions/{id}/folder`, `PATCH /transcriptions/{id}/text`, `DELETE /transcriptions/{id}/text` (restaurar), `POST /transcriptions/{id}/summary`, `DELETE /transcriptions/{id}/summary` (cancelar), `DELETE /transcriptions/{id}` |
-| Audio del archivo | `GET /transcriptions/{id}/audio`, `GET /transcriptions/{id}/audio/cleaned`, `GET /transcriptions/{id}/artwork`, `GET /transcriptions/{id}/download/{txt\|srt\|pdf}` |
+| Transcripciones | `POST /transcriptions`, `POST /transcriptions/from-paths`, `GET /transcriptions/{id}`, `PATCH /transcriptions/{id}/rename`, `PATCH /transcriptions/{id}/folder`, `PATCH /transcriptions/{id}/text`, `DELETE /transcriptions/{id}/text` (restaurar), `POST /transcriptions/{id}/retranscribe` (re-transcribir con otro modelo), `POST /transcriptions/{id}/summary`, `DELETE /transcriptions/{id}/summary` (cancelar), `DELETE /transcriptions/{id}` |
+| Audio del archivo | `GET /transcriptions/{id}/audio`, `GET /transcriptions/{id}/audio/cleaned`, `GET /transcriptions/{id}/artwork`, `GET /transcriptions/{id}/download/{txt\|srt\|pdf}`, `POST /transcriptions/{id}/reconnect` (resubir el audio por HTTP), `DELETE /transcriptions/{id}/audio-file` (borrar solo el audio, conserva la transcripción) |
 | Cleaned audio | `POST /cleaned/replace`, `POST /cleaned/save-as-new`, `DELETE /cleaned` |
 | Biblioteca | `GET /library/browse` (filesystem), `GET /folders`, `GET /folders/{id}`, `POST /folders`, `DELETE /folders/{id}` |
 | Perfil | `GET /profile`, `PATCH /profile`, `PATCH /profile/settings`, `DELETE /profile` |
@@ -109,7 +111,7 @@ Definido en [routes/web.php](routes/web.php). Hay tres clusters:
 
 | Recurso | Endpoints |
 |---|---|
-| Settings | `GET /admin/settings`, `PATCH /admin/settings/mode`, `PATCH /admin/settings/whisper-timeout`, `POST /admin/settings/refresh-gpu` |
+| Settings | `GET /admin/settings`, `PATCH /admin/settings/mode`, `PATCH /admin/settings/whisper-timeout`, `PATCH /admin/settings/remote-worker-url`, `POST /admin/settings/refresh-gpu` |
 | Users | `GET /admin/users`, `POST /admin/users/{id}/approve\|revoke`, `PATCH /admin/users/{id}/limit\|role`, `DELETE /admin/users/{id}` |
 | Worker (Python) | `GET\|POST /admin/worker/status\|start\|stop\|restart` |
 | Cloudflared | idem para `cloudflared` |
@@ -153,7 +155,7 @@ AppSetting  (k/v global, no FK)
 - **`transcriptions`** — `transcription_file_id` (unique), `text` (Whisper raw), `edited_text` (nullable, edición del usuario), `edited_at`, `effective_segments` (JSON de segmentos reconciliados), `metadata` (JSON), `summary`, `summary_metadata` (JSON: `key_points`, `model`, `tokens_used`, `provider`), `summary_status`, `summary_generated_at`.
 - **`transcription_segments`** — `transcription_id`, `position`, `start_seconds`, `end_seconds`, `text`. Indexado por `(transcription_id, position)`.
 - **`groq_usage`** — `user_id`, `date`, `requests_count`, `tokens_used`. Unique `(user_id, date)`.
-- **`app_settings`** — `key` unique, `value` JSON. Singletones: `mode`, `whisper_timeout`.
+- **`app_settings`** — `key` unique, `value` JSON (NOT NULL: "sin valor" se representa con string vacío). Singletones: `mode`, `whisper_timeout`, `remote_worker_url`.
 
 Estándar Laravel: `password_reset_tokens`, `sessions`, `cache`, `jobs`, `failed_jobs`.
 
@@ -165,7 +167,7 @@ Estándar Laravel: `password_reset_tokens`, `sessions`, `cache`, `jobs`, `failed
 
 | Controller | Responsabilidad |
 |---|---|
-| [TranscriptionFileController](app/Http/Controllers/TranscriptionFileController.php) | Ciclo completo del archivo: upload, listar, mostrar, descargar, streamear audio, renombrar, mover carpeta, editar texto, restaurar, lanzar resumen, cancelar resumen, eliminar. Centro del sistema. |
+| [TranscriptionFileController](app/Http/Controllers/TranscriptionFileController.php) | Ciclo completo del archivo: upload, listar, mostrar, descargar, streamear audio, renombrar, mover carpeta, editar texto, restaurar, re-transcribir, resubir audio (reconnect), borrar solo el audio, lanzar resumen, cancelar resumen, eliminar. Centro del sistema. |
 | [TranscriptionFolderController](app/Http/Controllers/TranscriptionFolderController.php) | Crear / listar / borrar carpetas. Limita anidamiento a 2 niveles. |
 | [AudioLibraryController](app/Http/Controllers/AudioLibraryController.php) | Browse del filesystem local. Devuelve subcarpetas + archivos con extensión de audio. |
 | [ProfileController](app/Http/Controllers/ProfileController.php) | Editar perfil, settings (tema, provider de resumen), password, delete account. |
@@ -188,7 +190,7 @@ Estándar Laravel: `password_reset_tokens`, `sessions`, `cache`, `jobs`, `failed
 ### Jobs (queue `database` driver)
 
 - [ProcessTranscriptionFile](app/Jobs/ProcessTranscriptionFile.php) — transcribe via subprocess local o API remota. Timeout dinámico ([AppSetting::whisperTimeout()](app/Models/AppSetting.php)). `tries=1`. Si el worker remoto está offline, lanza `RemoteWorkerOfflineException` que dispara re-dispatch con delay de 60s.
-- [SummarizeTranscription](app/Jobs/SummarizeTranscription.php) — resume via Ollama, Groq o RemoteSummarizer según provider. Timeout 900s. Soporta cancelación cooperativa: revisa `summary_status` antes y después del HTTP call.
+- [SummarizeTranscription](app/Jobs/SummarizeTranscription.php) — resume via Ollama, Groq o RemoteSummarizer. En modo `host` el provider efectivo es siempre `remote` (la preferencia per-usuario Ollama/Groq solo aplica en modo `local`). Timeout 900s. Soporta cancelación cooperativa: revisa `summary_status` antes y después del HTTP call.
 
 ### Services
 
@@ -203,7 +205,8 @@ app/Services/
 │  ├─ SummarizerInterface.php
 │  ├─ OllamaSummarizer.php            ── HTTP a localhost:11434/api/chat, chunking >50k chars
 │  ├─ GroqSummarizer.php              ── HTTP a Groq, chunking >8k chars, tracking en GroqUsage
-│  ├─ RemoteSummarizer.php            ── HTTP al worker remoto /summarize
+│  ├─ RemoteSummarizer.php            ── worker remoto /summarize: chunking >25k chars (map-reduce),
+│  │                                     parsea NDJSON streaming, reintenta 502/503/504 del túnel
 │  └─ SummarizerException.php
 ├─ Worker/
 │  ├─ WorkerProcessManager.php        ── start/stop/status uvicorn (Python), PID file
@@ -303,7 +306,9 @@ queued ──► enhancing (si clean_audio) ──► processing ──► compl
 
 **Edit → reconciliar segmentos:** cuando el usuario edita el texto en `Transcriptions/Show`, `PATCH /transcriptions/{id}/text` corre [SegmentReconciler](app/Services/Transcription/SegmentReconciler.php) que hace LCS palabra-a-palabra contra los segmentos originales. Palabras que sobreviven mantienen sus timestamps; palabras agregadas heredan el timestamp del vecino más cercano. Resultado se guarda en `transcriptions.effective_segments` (JSON) y se usa para el SRT y el karaoke.
 
-**Resumen:** `POST /transcriptions/{id}/summary` setea `summary_status='queued'` y dispatcha `SummarizeTranscription`. El summarizer chunkea si el texto excede su `MAX_CHARS_PER_CHUNK` (50k para Ollama, 8k para Groq), hace map-reduce de los parciales, y guarda `summary` (markdown completo), `summary_metadata.key_points`, `summary_metadata.tokens_used`, `summary_metadata.model`. El frontend polea cada 2.5s mientras esté en `queued|processing`.
+**Resumen:** `POST /transcriptions/{id}/summary` setea `summary_status='queued'` y dispatcha `SummarizeTranscription`. El summarizer chunkea si el texto excede su `MAX_CHARS_PER_CHUNK` (50k para Ollama, 8k para Groq, 25k para el worker remoto), hace map-reduce de los parciales, y guarda `summary` (markdown completo), `summary_metadata.key_points`, `summary_metadata.tokens_used`, `summary_metadata.model`. El frontend polea cada 2.5s mientras esté en `queued|processing`.
+
+**Re-transcribir:** `POST /transcriptions/{id}/retranscribe` (requiere el audio presente en el server) actualiza `model`, vuelve el archivo a `queued` y re-dispatcha `ProcessTranscriptionFile`. El job usa `updateOrCreate` sobre `transcriptions` + recrea los segments, así que la transcripción anterior se pisa limpio. `edited_text`/`effective_segments`/`summary` **no** se tocan (quedan de la corrida anterior — ver edge cases en BUSINESS_RULES).
 
 **Cancelación de resumen:** `DELETE /transcriptions/{id}/summary` marca `summary_status='failed'`; el job revisa el flag antes y después del HTTP y descarta el resultado si fue cancelado.
 
@@ -314,7 +319,8 @@ queued ──► enhancing (si clean_audio) ──► processing ──► compl
 | Servicio | Cómo se invoca | Auth | Cuándo |
 |---|---|---|---|
 | Whisper local | subprocess de `python whisper_worker/transcribe.py` con `--file --output --model --language --clean-audio --cleaned-output` | n/a | modo `local` |
-| Whisper remoto | POST `{REMOTE_WORKER_URL}/transcribe` multipart | Bearer `REMOTE_WORKER_TOKEN` | modo `host` |
+| Whisper remoto | POST `{worker}/transcribe` multipart (URL efectiva: `AppSetting::remoteWorkerUrl()`), respuesta NDJSON streaming | Bearer `REMOTE_WORKER_TOKEN` | modo `host` |
+| Resumen remoto | POST `{worker}/summarize` JSON; respuesta NDJSON streaming con heartbeats cada 10s + `{"result": …}` final (el streaming evita el corte de ~100s de Cloudflare); acepta también el JSON plano del contrato viejo | Bearer `REMOTE_WORKER_TOKEN` | modo `host` |
 | Ollama | POST `{OLLAMA_BASE_URL}/api/chat` con `format: json` | n/a | resumen, modo `local` |
 | Groq | POST `https://api.groq.com/openai/v1/chat/completions` | Bearer `GROQ_APIKEY` | resumen, opt-in por usuario |
 | Google OAuth | Socialite → redirect a Google → callback | OAuth 2.0 | login |
@@ -327,7 +333,7 @@ queued ──► enhancing (si clean_audio) ──► processing ──► compl
 [whisper_worker/](whisper_worker/) tiene dos entry points:
 
 - **[transcribe.py](whisper_worker/transcribe.py)** — script CLI que recibe `--file --output --model --language --clean-audio --cleaned-output`. Emite NDJSON al stdout con `{phase, …}` y `{progress: N}`. Detecta CUDA via `ctranslate2.get_cuda_device_count()`. Si hay GPU Ampere+, usa `float16`; si no, fallback a CPU con `int8`/`float32`. Para denoise usa FFmpeg con el filtro `arnndn` y el modelo [models/cb.rnnn](whisper_worker/models/cb.rnnn). Conversión final del cleaned audio a MP3 192 kbps.
-- **[api_server.py](whisper_worker/api_server.py)** — FastAPI con 3 endpoints (`/health`, `/transcribe`, `/summarize`). Streamea el mismo NDJSON via SSE/streaming response.
+- **[api_server.py](whisper_worker/api_server.py)** — FastAPI con 3 endpoints (`/health`, `/transcribe`, `/summarize`). `/transcribe` streamea el mismo NDJSON del CLI. `/summarize` proxya a Ollama (`format: json`, `num_ctx 12288`, `num_predict 4096`, `repeat_penalty 1.5` para evitar loops/JSON truncado en textos largos) y también responde NDJSON: heartbeats `{"status":"working"}` cada 10s mientras Ollama trabaja y una línea final `{"result": …}` / `{"error": …}` — clave detrás de Cloudflare Tunnel, que corta si el origen tarda ~100s en empezar a responder. Cuando corre detrás de cloudflared, lanzar uvicorn con `--timeout-keep-alive 120` (mayor a los ~90s del pool de cloudflared) para evitar 502 por conexiones keep-alive reusadas sobre sockets cerrados.
 
 [WorkerProcessManager](app/Services/Worker/WorkerProcessManager.php) gestiona el ciclo de vida del FastAPI:
 
@@ -355,10 +361,11 @@ storage/
 
 `transcription_files.stored_path` puede ser:
 
-- Relativo (`audios/{user_id}/abc.mp3`) si el archivo se subió via upload.
+- Relativo (`audios/{user_id}/abc.mp3`) si el archivo se subió via upload (o se resubió via `reconnect`).
 - Absoluto (`D:\Music\foo.mp3`) si se referencia desde la biblioteca local (`storeFromPaths`).
+- Vacío (`''`) si el usuario borró el audio con `DELETE /transcriptions/{id}/audio-file` — la transcripción sigue viva, el serializer expone `audio_available=false` y la UI ofrece "Resubir archivo".
 
-[TranscriptionFile::absolutePath()](app/Models/TranscriptionFile.php) maneja los dos casos.
+[TranscriptionFile::absolutePath()](app/Models/TranscriptionFile.php) maneja los casos. El borrado físico (en `deleteAudio`, `reconnectAudio` y `destroy`) solo aplica a paths relativos: los absolutos son archivos del usuario que la app no administra.
 
 ---
 
@@ -374,7 +381,7 @@ storage/
 
 ### Riesgos identificados
 
-1. **Bypass de `audio_limit` en `POST /transcriptions`.** `User::canUploadMore()` existe y se chequea en `storeFromPaths()`, pero `store()` ([TranscriptionFileController:99-139](app/Http/Controllers/TranscriptionFileController.php)) no lo invoca. Un usuario con límite puede subir ilimitadamente por upload directo.
+1. ~~**Bypass de `audio_limit` en `POST /transcriptions`.**~~ **Resuelto**: `store()` ahora chequea `canUploadMore()` y además limita el lote a los cupos restantes, igual que `storeFromPaths()`.
 
 2. **Path traversal / disclosure de filesystem en `AudioLibraryController::browse`.** Acepta `path` arbitrario y hace `scandir()` sin whitelist. El filtro por extensión esconde no-audio pero igualmente revela la estructura completa del filesystem del server.
 
@@ -410,14 +417,14 @@ storage/
 
 | # | Item | Severidad | Costo aprox. |
 |---|---|---|---|
-| 1 | Chequear `canUploadMore()` también en `store()` | Alta | 5 min |
+| 1 | ~~Chequear `canUploadMore()` también en `store()`~~ ✅ hecho | — | — |
 | 2 | Whitelist de paths en `AudioLibraryController` | Alta | 1 h |
 | 3 | Sanitizar HTML del resumen con DOMPurify | Media | 30 min |
 | 4 | Hard-block Groq cuando se excede `free_tier` | Media | 1 h |
 | 5 | Re-verificar email antes de link con Google | Media | 1 h |
 | 6 | Retention/cleanup de uploads y cleaned audios | Media | 4 h |
 | 7 | Comando `php artisan` para limpiar PIDs huérfanos y jobs zombies | Media | 2 h |
-| 8 | Test suite (hoy `tests/` es el scaffold de Breeze, sin specs propios) | Media | grande |
+| 8 | Ampliar test suite (hay specs propios para reconnect/retranscribe en `tests/Feature/`; falta cubrir upload, resumen, carpetas; 6 tests del scaffold de Breeze fallan por `app_settings` ausente en el entorno de test) | Media | grande |
 | 9 | Reemplazar `payload LIKE` por purge nativo de Laravel | Baja | 1 h |
 | 10 | Supervisor (systemd / nssm) para el queue worker, en vez de cmd window | Baja | 1 h |
 | 11 | Hint de tipo más estricto en `effective_segments` (DTO en vez de JSON suelto) | Baja | 4 h |
