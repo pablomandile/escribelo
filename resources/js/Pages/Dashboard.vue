@@ -429,6 +429,39 @@ const submit = () => {
     });
 };
 
+// Subida HTTP real (funciona en el server): el archivo viaja del navegador al
+// storage del server vía store(); reutiliza los ajustes del form principal.
+const uploadForm = useForm({
+    files: [],
+    transcription_folder_id: '',
+    model: initialModel,
+    language: initialLanguage,
+    clean_audio: false,
+});
+const uploadInput = ref(null);
+const triggerUpload = () => uploadInput.value?.click();
+const onFilesSelected = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (! files.length) return;
+    uploadForm.files = files;
+    uploadForm.transcription_folder_id = form.transcription_folder_id;
+    uploadForm.model = form.model;
+    uploadForm.language = form.language;
+    uploadForm.clean_audio = form.clean_audio;
+    uploadForm.post(route('transcriptions.store'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            toast.success('Archivo(s) enviado(s) a transcripción.');
+            uploadForm.reset('files');
+            if (uploadInput.value) uploadInput.value.value = '';
+        },
+        onError: (errors) => {
+            toast.error(errors['files.0'] || errors.files || 'No se pudo subir el archivo.');
+            if (uploadInput.value) uploadInput.value.value = '';
+        },
+    });
+};
+
 const addExistingOpen = ref(false);
 const addExistingLoading = ref(false);
 const addExistingError = ref(null);
@@ -1012,20 +1045,43 @@ const formatDate = (value) => {
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
                                     Audios
                                 </label>
-                                <button
-                                    type="button"
-                                    class="mt-1 flex min-h-10 w-full items-center rounded-md border border-dashed border-gray-300 px-3 py-2 text-left text-sm text-gray-600 hover:border-blue-400 hover:text-blue-700 dark:border-gray-600 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-300"
-                                    @click="openLibrary"
+                                <div class="mt-1 flex gap-2">
+                                    <button
+                                        type="button"
+                                        class="flex min-h-10 flex-1 items-center rounded-md border border-dashed border-gray-300 px-3 py-2 text-left text-sm text-gray-600 hover:border-blue-400 hover:text-blue-700 dark:border-gray-600 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-300"
+                                        title="Elegir archivos del disco donde corre la app (modo local)"
+                                        @click="openLibrary"
+                                    >
+                                        <span class="truncate">
+                                            {{ selectedFiles.length ? `${selectedFiles.length} archivo${selectedFiles.length === 1 ? '' : 's'} seleccionado${selectedFiles.length === 1 ? '' : 's'}` : 'Elegir de la biblioteca' }}
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-blue-400 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:text-gray-200 dark:hover:border-blue-500 dark:hover:text-blue-300"
+                                        :disabled="uploadForm.processing"
+                                        title="Subir un archivo desde tu dispositivo (funciona en el servidor)"
+                                        @click="triggerUpload"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+                                        </svg>
+                                        {{ uploadForm.processing ? 'Subiendo…' : 'Subir archivo' }}
+                                    </button>
+                                </div>
+                                <input
+                                    ref="uploadInput"
+                                    type="file"
+                                    multiple
+                                    accept=".mp3,.wav,.m4a,.mp4,.webm,.ogg,.oga,.flac,.aac,audio/*"
+                                    class="hidden"
+                                    @change="onFilesSelected"
                                 >
-                                    <span class="truncate">
-                                        {{ selectedFiles.length ? `${selectedFiles.length} archivo${selectedFiles.length === 1 ? '' : 's'} seleccionado${selectedFiles.length === 1 ? '' : 's'}` : 'Elegir de la biblioteca' }}
-                                    </span>
-                                </button>
                                 <p
-                                    v-if="form.errors.paths || form.errors['paths.0']"
+                                    v-if="form.errors.paths || form.errors['paths.0'] || uploadForm.errors.files || uploadForm.errors['files.0']"
                                     class="mt-1 text-sm text-rose-600 dark:text-rose-400"
                                 >
-                                    {{ form.errors.paths || form.errors['paths.0'] }}
+                                    {{ form.errors.paths || form.errors['paths.0'] || uploadForm.errors.files || uploadForm.errors['files.0'] }}
                                 </p>
                             </div>
 

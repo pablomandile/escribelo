@@ -318,6 +318,23 @@ const onReuploadSelected = (e) => {
     });
 };
 
+// Borra el audio del servidor (libera espacio) pero conserva la transcripción.
+const deleteAudio = async () => {
+    const ok = await openConfirm({
+        title: 'Borrar audio',
+        message: 'Se elimina el archivo de audio del servidor para liberar espacio. La transcripción (texto) se conserva y vas a poder resubir el audio más adelante si querés escucharlo.',
+        confirmText: 'Borrar audio',
+        cancelText: 'Cancelar',
+        danger: true,
+    });
+    if (! ok) return;
+    router.delete(route('transcriptions.audio.delete', props.file.id), {
+        preserveScroll: true,
+        onSuccess: () => toast.success('Audio eliminado.'),
+        onError: () => toast.error('No se pudo borrar el audio.'),
+    });
+};
+
 const segments = computed(() => props.file.transcription?.segments ?? []);
 const segmentsCount = computed(() => props.file.transcription?.segments_count ?? segments.value.length);
 
@@ -681,6 +698,20 @@ const statusLabel = (status) => ({
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
                             </svg>
                             {{ reuploading ? 'Subiendo…' : 'Resubir archivo' }}
+                        </button>
+                    </div>
+
+                    <div v-if="file.audio_available" class="mt-3 flex justify-end">
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 transition hover:text-rose-600 dark:text-gray-400 dark:hover:text-rose-400"
+                            title="Elimina el mp3 del servidor pero conserva la transcripción"
+                            @click="deleteAudio"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Borrar audio (liberar espacio)
                         </button>
                     </div>
 

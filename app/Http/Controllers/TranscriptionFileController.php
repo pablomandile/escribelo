@@ -104,9 +104,26 @@ class TranscriptionFileController extends Controller
             'transcription_folder_id' => ['nullable', 'integer', 'exists:transcription_folders,id'],
             'model' => ['required', 'string', 'in:tiny,base,small,medium,large,large-v2,large-v3,turbo'],
             'language' => ['nullable', 'string', 'max:12'],
+            'clean_audio' => ['nullable', 'boolean'],
         ]);
 
         $user = $request->user();
+
+        if (! $user->canUploadMore()) {
+            return back()->withErrors([
+                'files' => "Alcanzaste el límite de {$user->audio_limit} audios. Borrá alguno para subir uno nuevo.",
+            ]);
+        }
+
+        $remainingSlots = $user->hasUnlimitedAudio()
+            ? PHP_INT_MAX
+            : max(0, (int) $user->audio_limit - $user->audioUsage());
+
+        if (count($validated['files']) > $remainingSlots) {
+            return back()->withErrors([
+                'files' => "Solo te quedan {$remainingSlots} cupos disponibles. Reducí la selección o borrá audios viejos.",
+            ]);
+        }
 
         if (! empty($validated['transcription_folder_id'])) {
             TranscriptionFolder::whereBelongsTo($user)->findOrFail($validated['transcription_folder_id']);
@@ -128,6 +145,7 @@ class TranscriptionFileController extends Controller
                 'mime_type' => $uploadedFile->getMimeType(),
                 'size' => $uploadedFile->getSize() ?: 0,
                 'language' => $validated['language'] ?: null,
+                'clean_audio' => (bool) ($validated['clean_audio'] ?? false),
                 'model' => $validated['model'],
                 'status' => 'queued',
             ]);
@@ -252,6 +270,34 @@ class TranscriptionFileController extends Controller
         ]);
 
         return back()->with('status', 'Audio reconectado. Ya podés reproducirlo.');
+    }
+
+    /**
+     * Borra sólo el archivo de audio del storage (libera espacio en el server) pero
+     * conserva la transcripción. El registro queda sin audio → aparece "Resubir archivo".
+     */
+    public function deleteAudio(Request $request, TranscriptionFile $transcriptionFile): RedirectResponse
+    {
+        abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
+
+        // Borrar el original sólo si es una ruta relativa nuestra (no las rutas
+        // absolutas externas del modo local). Misma lógica que destroy().
+        $stored = (string) $transcriptionFile->stored_path;
+        $isAbsolute = preg_match('/^([A-Za-z]:[\\\\\/]|\/)/', $stored) === 1;
+        if (! $isAbsolute && $stored !== '') {
+            Storage::disk('local')->delete($stored);
+        }
+
+        if ($transcriptionFile->cleaned_audio_path) {
+            Storage::disk('local')->delete($transcriptionFile->cleaned_audio_path);
+        }
+
+        $transcriptionFile->update([
+            'stored_path' => '',
+            'cleaned_audio_path' => null,
+        ]);
+
+        return back()->with('status', 'Audio eliminado. La transcripción se conserva; podés resubir el audio cuando quieras.');
     }
 
     public function destroy(Request $request, TranscriptionFile $transcriptionFile): RedirectResponse
