@@ -199,11 +199,13 @@ async def transcribe(
 # ---------------------------------------------------------------------------
 
 SUMMARY_SYSTEM_PROMPT = (
-    "Sos un asistente que resume transcripciones de audio en español. "
-    "Devolvé exclusivamente JSON válido con la forma "
-    '{"summary": string, "key_points": string[]} '
-    "donde summary es un resumen claro de 3 a 6 oraciones y key_points es una "
-    "lista de 4 a 8 puntos clave concretos. No agregues texto fuera del JSON."
+    "Sos un asistente que resume transcripciones de audio en español, en tercera persona y neutral. "
+    "Devolvé EXCLUSIVAMENTE JSON válido con la forma "
+    '{"summary": string, "key_points": string[]}. '
+    '"summary": un resumen claro de 4 a 8 oraciones. '
+    '"key_points": entre 6 y 12 elementos, cada uno una frase CORTA e independiente '
+    "(máximo 25 palabras) sobre un punto concreto. NO juntes varias ideas en un mismo ítem "
+    "y NO repitas frases. No agregues nada de texto fuera del JSON."
 )
 
 
@@ -257,8 +259,8 @@ async def summarize(payload: dict, authorization: Optional[str] = Header(None)) 
             "repeat_penalty": 1.5,
             "top_p": 0.9,
             "top_k": 40,
-            "num_predict": 2048,
-            "num_ctx": 8192,
+            "num_predict": 4096,
+            "num_ctx": 12288,
         },
         "keep_alive": "30m",
     }
