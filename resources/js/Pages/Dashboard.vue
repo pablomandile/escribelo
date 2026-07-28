@@ -306,6 +306,13 @@ const hasInFlight = computed(() =>
 );
 
 const page = usePage();
+
+// Indicador de dónde se transcribe, según el modo global (local/host).
+const transcribeLocation = computed(() =>
+    page.props.appMode === 'host'
+        ? { icon: '⚡', label: 'Transcribiendo en worker remoto (tu PC · GPU) vía túnel', cls: 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-900/30 dark:text-blue-200' }
+        : { icon: '🖥️', label: 'Transcribiendo en esta máquina (local)', cls: 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300' },
+);
 const quotaPct = computed(() => {
     const u = page.props.auth?.user;
     if (! u || u.audio_limit === null || u.audio_limit === 0) return 0;
@@ -1036,6 +1043,14 @@ const formatDate = (value) => {
                 </aside>
 
                 <main class="space-y-5">
+                    <div
+                        class="flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium"
+                        :class="transcribeLocation.cls"
+                        :title="page.props.appMode === 'host' ? 'El audio se envía a tu PC por el túnel Cloudflare y se transcribe con la GPU' : 'Se transcribe en la misma máquina donde corre la app'"
+                    >
+                        <span aria-hidden="true">{{ transcribeLocation.icon }}</span>
+                        <span>{{ transcribeLocation.label }}</span>
+                    </div>
                     <form
                         class="rounded-md border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
                         @submit.prevent="submit"

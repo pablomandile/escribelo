@@ -771,6 +771,9 @@ const statusLabel = (status) => ({
                                     <template v-if="summaryProvider === 'ollama'">
                                         🏠 Ollama local · <code class="rounded bg-gray-100 px-1 py-0.5 dark:bg-gray-700">{{ summaryModel || ollamaConfig.model }}</code>
                                     </template>
+                                    <template v-else-if="summaryProvider === 'remote'">
+                                        ⚡ Ollama en worker remoto (tu PC) vía túnel · <code class="rounded bg-gray-100 px-1 py-0.5 dark:bg-gray-700">{{ summaryModel || ollamaConfig.model }}</code>
+                                    </template>
                                     <template v-else>
                                         ☁️ Groq · <code class="rounded bg-gray-100 px-1 py-0.5 dark:bg-gray-700">{{ summaryModel || 'llama-3.1-8b-instant' }}</code>
                                     </template>
@@ -869,7 +872,7 @@ const statusLabel = (status) => ({
                             v-else-if="! hasSummary && summaryStatus === 'idle'"
                             class="text-sm text-gray-500 dark:text-gray-400"
                         >
-                            Aún no hay resumen. Hacé clic en "Resumir" para generar uno con {{ ollamaAvailable ? 'Ollama' : 'Groq' }}.
+                            Aún no hay resumen. Hacé clic en "Resumir" para generar uno con {{ summaryProvider === 'remote' ? 'Ollama (worker remoto vía túnel)' : (summaryProvider === 'ollama' ? 'Ollama local' : 'Groq') }}.
                         </p>
                         <div
                             v-else-if="hasSummary"
