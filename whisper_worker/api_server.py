@@ -233,7 +233,7 @@ def _parse_summary_json(content: str):
 
 
 @app.post("/summarize")
-async def summarize(payload: dict, authorization: Optional[str] = Header(None)) -> JSONResponse:
+async def summarize(payload: dict, authorization: Optional[str] = Header(None)) -> StreamingResponse:
     _check_token(authorization)
 
     text = (payload.get("text") or "").strip()
@@ -265,30 +265,57 @@ async def summarize(payload: dict, authorization: Optional[str] = Header(None)) 
         "keep_alive": "30m",
     }
 
-    try:
-        async with httpx.AsyncClient(timeout=600.0) as client:
-            r = await client.post(_ollama_url("/api/chat"), json=body)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Ollama unreachable: {exc}")
+    async def call_ollama() -> dict:
+        try:
+            async with httpx.AsyncClient(timeout=600.0) as client:
+                r = await client.post(_ollama_url("/api/chat"), json=body)
+        except Exception as exc:
+            raise RuntimeError(f"Ollama unreachable: {exc}")
 
-    if r.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"Ollama HTTP {r.status_code}: {r.text}")
+        if r.status_code != 200:
+            raise RuntimeError(f"Ollama HTTP {r.status_code}: {r.text}")
 
-    data = r.json()
-    content = (data.get("message") or {}).get("content") or ""
+        data = r.json()
+        content = (data.get("message") or {}).get("content") or ""
 
-    parsed = _parse_summary_json(content)
-    if parsed is None:
-        raise HTTPException(status_code=502, detail="Ollama returned non-JSON content")
+        parsed = _parse_summary_json(content)
+        if parsed is None:
+            raise RuntimeError("Ollama returned non-JSON content")
 
-    tokens_used = int(data.get("prompt_eval_count", 0)) + int(data.get("eval_count", 0))
+        tokens_used = int(data.get("prompt_eval_count", 0)) + int(data.get("eval_count", 0))
 
-    return JSONResponse({
-        "summary": str(parsed.get("summary", "")).strip(),
-        "key_points": [str(x) for x in (parsed.get("key_points") or [])],
-        "tokens_used": tokens_used,
-        "model": model,
-    })
+        return {
+            "summary": str(parsed.get("summary", "")).strip(),
+            "key_points": [str(x) for x in (parsed.get("key_points") or [])],
+            "tokens_used": tokens_used,
+            "model": model,
+        }
+
+    # NDJSON con heartbeats (mismo patrón que /transcribe): Cloudflare corta la
+    # conexión si el origen tarda ~100s en responder, así que mandamos la cabecera
+    # y un latido cada 10s mientras Ollama trabaja; la última línea trae "result".
+    task = asyncio.create_task(call_ollama())
+
+    async def event_stream():
+        try:
+            while True:
+                done, _ = await asyncio.wait({task}, timeout=10.0)
+                if done:
+                    break
+                yield json.dumps({"status": "working"}) + "\n"
+
+            try:
+                result = task.result()
+            except Exception as exc:
+                yield json.dumps({"error": str(exc)}, ensure_ascii=False) + "\n"
+                return
+
+            yield json.dumps({"result": result}, ensure_ascii=False) + "\n"
+        finally:
+            if not task.done():
+                task.cancel()
+
+    return StreamingResponse(event_stream(), media_type="application/x-ndjson")
 
 
 def _ollama_url(path: str) -> str:

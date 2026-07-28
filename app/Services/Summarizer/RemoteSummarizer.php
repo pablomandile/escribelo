@@ -124,23 +124,82 @@ class RemoteSummarizer implements SummarizerInterface
 
     private function callOnce(string $baseUrl, string $token, int $timeout, string $text, ?string $language): array
     {
-        try {
-            $response = Http::withToken($token)
-                ->timeout($timeout)
-                ->acceptJson()
-                ->post($baseUrl.'/summarize', [
-                    'text' => $text,
-                    'language' => $language,
+        $lastError = '';
+
+        // El túnel de Cloudflare da 502 transitorios ("retryable") — p.ej. cuando
+        // cloudflared reusa una conexión keep-alive contra un worker recién
+        // reiniciado. Reintentamos antes de dar el resumen por fallido.
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            if ($attempt > 1) {
+                Log::warning('Remote summarize: reintento tras error transitorio', [
+                    'attempt' => $attempt,
+                    'error' => $lastError,
                 ]);
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
-            throw new SummarizerException('Worker remoto no responde: '.$e->getMessage());
+                sleep($attempt === 2 ? 5 : 20);
+            }
+
+            try {
+                $response = Http::withToken($token)
+                    ->timeout($timeout)
+                    ->acceptJson()
+                    ->post($baseUrl.'/summarize', [
+                        'text' => $text,
+                        'language' => $language,
+                    ]);
+            } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                $lastError = 'Worker remoto no responde: '.$e->getMessage();
+
+                continue;
+            }
+
+            if (in_array($response->status(), [502, 503, 504], true)) {
+                $lastError = 'Worker remoto devolvió '.$response->status().': '.mb_substr($response->body(), 0, 300);
+
+                continue;
+            }
+
+            if (! $response->successful()) {
+                throw new SummarizerException('Worker remoto devolvió '.$response->status().': '.$response->body());
+            }
+
+            return $this->parseWorkerResponse($response->body());
         }
 
-        if (! $response->successful()) {
-            throw new SummarizerException('Worker remoto devolvió '.$response->status().': '.$response->body());
+        throw new SummarizerException($lastError !== '' ? $lastError : 'Worker remoto: error transitorio persistente.');
+    }
+
+    /**
+     * El worker responde NDJSON: heartbeats {"status":"working"} mientras Ollama
+     * trabaja (así Cloudflare no corta por los ~100s sin respuesta) y una línea
+     * final {"result": {...}} o {"error": "..."}. Aceptamos también el JSON plano
+     * {"summary": ...} del contrato anterior por compatibilidad.
+     */
+    private function parseWorkerResponse(string $body): array
+    {
+        $payload = null;
+
+        foreach (preg_split('/\r?\n/', trim($body)) as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            $decoded = json_decode($line, true);
+            if (! is_array($decoded)) {
+                continue;
+            }
+
+            if (isset($decoded['error'])) {
+                throw new SummarizerException('Worker remoto: '.$decoded['error']);
+            }
+
+            if (isset($decoded['result']) && is_array($decoded['result'])) {
+                $payload = $decoded['result'];
+            } elseif (isset($decoded['summary'])) {
+                $payload = $decoded;
+            }
         }
 
-        $payload = $response->json();
         if (! is_array($payload) || ! isset($payload['summary'])) {
             throw new SummarizerException('Worker remoto devolvió un payload inválido.');
         }
