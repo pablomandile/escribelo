@@ -149,6 +149,10 @@ const props = defineProps({
         type: Object,
         default: () => ({ model: 'gemma3:12b', base_url: 'http://localhost:11434' }),
     },
+    availableModels: {
+        type: Array,
+        default: () => ['small', 'medium', 'large-v3'],
+    },
 });
 
 const summaryStatus = computed(() => props.file.transcription?.summary_status ?? 'idle');
@@ -225,8 +229,29 @@ const stopSummaryPoll = () => {
     }
 };
 
-watch(summaryStatus, (status) => {
-    if (status === 'queued' || status === 'processing') {
+// Re-transcripción: el archivo vuelve a un estado de procesamiento hasta completar.
+const REPROCESSING_STATES = ['queued', 'processing', 'enhancing', 'waiting_for_worker'];
+const isReprocessing = computed(() => REPROCESSING_STATES.includes(props.file.status));
+
+const retranscribeOpen = ref(false);
+const retranscribe = (model) => {
+    retranscribeOpen.value = false;
+    router.post(route('transcriptions.retranscribe', props.file.id), { model }, {
+        preserveScroll: true,
+        onSuccess: () => toast.success('Re-transcribiendo con ' + model + '…'),
+        onError: (errors) => toast.error(errors.model || 'No se pudo re-transcribir.'),
+    });
+};
+
+// Polleamos mientras haya un resumen o una (re)transcripción en curso, para
+// refrescar el estado y mostrar el resultado nuevo cuando termine.
+const needsPoll = computed(() =>
+    isReprocessing.value
+    || summaryStatus.value === 'queued'
+    || summaryStatus.value === 'processing',
+);
+watch(needsPoll, (active) => {
+    if (active) {
         startSummaryPoll();
     } else {
         stopSummaryPoll();
@@ -962,6 +987,45 @@ const statusLabel = (status) => ({
                             >
                                 ✎ Editar
                             </button>
+                            <div v-if="file.audio_available && ! isReprocessing" class="relative">
+                                <button
+                                    type="button"
+                                    class="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                                    title="Volver a transcribir el audio con otro modelo"
+                                    @click="retranscribeOpen = ! retranscribeOpen"
+                                >
+                                    🔄 Re-transcribir
+                                </button>
+                                <div v-if="retranscribeOpen" class="fixed inset-0 z-10" @click="retranscribeOpen = false" />
+                                <div
+                                    v-if="retranscribeOpen"
+                                    class="absolute right-0 z-20 mt-1 w-56 rounded-md border border-gray-200 bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+                                >
+                                    <p class="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        Re-transcribir con modelo
+                                    </p>
+                                    <button
+                                        v-for="m in availableModels"
+                                        :key="m"
+                                        type="button"
+                                        class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                                        @click="retranscribe(m)"
+                                    >
+                                        <span>{{ m }}</span>
+                                        <span v-if="m === file.model" class="text-[10px] uppercase text-gray-400">actual</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <span
+                                v-else-if="isReprocessing"
+                                class="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
+                            >
+                                <svg class="h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                                </svg>
+                                Re-transcribiendo…
+                            </span>
                             <button
                                 v-if="file.transcription?.edited"
                                 type="button"

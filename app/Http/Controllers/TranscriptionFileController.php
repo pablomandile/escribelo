@@ -16,6 +16,9 @@ use Symfony\Component\Mime\MimeTypes;
 
 class TranscriptionFileController extends Controller
 {
+    /** Modelos de Whisper ofrecidos en la UI (subida y re-transcripción). */
+    private const AVAILABLE_MODELS = ['small', 'medium', 'large-v3'];
+
     public function index(Request $request): Response
     {
         $user = $request->user();
@@ -92,7 +95,7 @@ class TranscriptionFileController extends Controller
             'filter' => $folderId !== null ? 'folder' : $filter,
             'activeFolderId' => $folderId,
             'activeFolder' => $activeFolder,
-            'availableModels' => ['small', 'medium', 'large-v3'],
+            'availableModels' => self::AVAILABLE_MODELS,
         ]);
     }
 
@@ -298,6 +301,38 @@ class TranscriptionFileController extends Controller
         ]);
 
         return back()->with('status', 'Audio eliminado. La transcripción se conserva; podés resubir el audio cuando quieras.');
+    }
+
+    /**
+     * Re-transcribe un archivo (que tiene audio disponible en el server) usando otro
+     * modelo. El job sobreescribe la transcripción existente (updateOrCreate + recrea
+     * segmentos), así que sirve para reintentar con un modelo más preciso.
+     */
+    public function retranscribe(Request $request, TranscriptionFile $transcriptionFile): RedirectResponse
+    {
+        abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
+
+        $validated = $request->validate([
+            'model' => ['required', 'string', 'in:tiny,base,small,medium,large,large-v2,large-v3,turbo'],
+        ]);
+
+        $absolute = $transcriptionFile->absolutePath();
+        if (! is_file($absolute) || ! is_readable($absolute)) {
+            return back()->withErrors([
+                'model' => 'El audio no está disponible en el servidor. Resubilo antes de re-transcribir.',
+            ]);
+        }
+
+        $transcriptionFile->update([
+            'model' => $validated['model'],
+            'status' => 'queued',
+            'progress' => 0,
+            'error_message' => null,
+        ]);
+
+        ProcessTranscriptionFile::dispatch($transcriptionFile);
+
+        return back()->with('status', 'Re-transcribiendo con el modelo '.$validated['model'].'…');
     }
 
     public function destroy(Request $request, TranscriptionFile $transcriptionFile): RedirectResponse
@@ -666,6 +701,7 @@ class TranscriptionFileController extends Controller
             // sí se trae a demanda vía /transcriptions/{id}/segments.
             'file' => $this->serializeFile($transcriptionFile, includeSegments: true, includeAudioMetadata: true),
             'summaryProvider' => $summaryProvider,
+            'availableModels' => self::AVAILABLE_MODELS,
             'ollamaAvailable' => $this->isOllamaAvailable(),
             'groqUsage' => [
                 'requests_count' => (int) $usage->requests_count,
