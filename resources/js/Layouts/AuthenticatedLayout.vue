@@ -80,6 +80,12 @@ const toggleTheme = () => {
                                 >
                                     FAQ
                                 </NavLink>
+                                <NavLink
+                                    :href="route('about.index')"
+                                    :active="route().current('about.index')"
+                                >
+                                    Acerca de
+                                </NavLink>
                             </div>
                         </div>
 
@@ -234,6 +240,12 @@ const toggleTheme = () => {
                         >
                             FAQ
                         </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            :href="route('about.index')"
+                            :active="route().current('about.index')"
+                        >
+                            Acerca de
+                        </ResponsiveNavLink>
                     </div>
 
                     <!-- Responsive Settings Options -->
@@ -322,6 +334,7 @@ const toggleTheme = () => {
                         <Link :href="route('folders.index')" class="hover:text-gray-900 dark:hover:text-white">Biblioteca</Link>
                         <Link :href="route('about.model')" class="hover:text-gray-900 dark:hover:text-white">Modelo</Link>
                         <Link :href="route('about.faq')" class="hover:text-gray-900 dark:hover:text-white">FAQ</Link>
+                        <Link :href="route('about.index')" class="hover:text-gray-900 dark:hover:text-white">Acerca de</Link>
                         <Link :href="route('profile.edit')" class="hover:text-gray-900 dark:hover:text-white">Configuración de la cuenta</Link>
                     </nav>
                 </div>

@@ -63,6 +63,7 @@ Route::middleware(['auth', 'approved'])->group(function () {
     Route::post('/folders', [TranscriptionFolderController::class, 'store'])->name('folders.store');
     Route::delete('/folders/{folder}', [TranscriptionFolderController::class, 'destroy'])->name('folders.destroy');
 
+    Route::get('/acerca-de', fn () => \Inertia\Inertia::render('About/Index'))->name('about.index');
     Route::get('/modelo', fn () => \Inertia\Inertia::render('About/Model'))->name('about.model');
     Route::get('/faq', fn () => \Inertia\Inertia::render('About/Faq'))->name('about.faq');
 
