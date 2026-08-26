@@ -575,16 +575,33 @@ const closeDownload = () => {
 const renamingFileId = ref(null);
 const renameDraft = ref('');
 const savingRename = ref(false);
+// El input de renombrar existe dos veces en el DOM: en la tabla (desktop) y en
+// las tarjetas (mobile). Uno de los dos está siempre oculto por CSS, así que
+// enfocamos el que realmente esté visible.
 let renameInputEl = null;
+let renameInputElMobile = null;
 const setRenameInputEl = (el) => { renameInputEl = el; };
+const setRenameInputElMobile = (el) => { renameInputElMobile = el; };
+
+const focusRenameInput = () => {
+    for (const el of [renameInputEl, renameInputElMobile]) {
+        if (el && el.offsetParent !== null) {
+            el.focus();
+            el.select();
+            return;
+        }
+    }
+    // Fallback por si ninguno reporta visibilidad todavía.
+    renameInputEl?.focus();
+    renameInputEl?.select();
+};
 
 const startRename = async (file) => {
     renamingFileId.value = file.id;
     renameDraft.value = file.original_name || '';
     savingRename.value = false;
     await nextTick();
-    renameInputEl?.focus();
-    renameInputEl?.select();
+    focusRenameInput();
 };
 
 const cancelRename = () => {
@@ -736,8 +753,8 @@ const formatDate = (value) => {
         </template>
 
         <div class="bg-slate-50 py-8 dark:bg-gray-900">
-            <div class="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[240px_1fr] lg:px-8">
-                <aside class="space-y-4">
+            <div class="mx-auto grid w-full max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-8">
+                <aside class="min-w-0 space-y-4">
                     <section class="rounded-md bg-slate-900 p-4 text-white shadow-sm">
                         <p class="text-sm font-semibold">
                             {{ stats.queued }} en proceso
@@ -835,7 +852,8 @@ const formatDate = (value) => {
                         </nav>
                     </section>
 
-                    <section class="space-y-2">
+                    <!-- Lista de carpetas: oculta en mobile (se navega desde desktop). -->
+                    <section class="hidden space-y-2 lg:block">
                         <div class="flex items-center justify-between px-2">
                             <h3 class="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 Carpetas
@@ -1042,7 +1060,7 @@ const formatDate = (value) => {
                     </section>
                 </aside>
 
-                <main class="space-y-5">
+                <main class="min-w-0 space-y-5">
                     <div
                         class="flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium"
                         :class="transcribeLocation.cls"
@@ -1063,7 +1081,7 @@ const formatDate = (value) => {
                                 <div class="mt-1 flex gap-2">
                                     <button
                                         type="button"
-                                        class="flex min-h-10 flex-1 items-center rounded-md border border-dashed border-gray-300 px-3 py-2 text-left text-sm text-gray-600 hover:border-blue-400 hover:text-blue-700 dark:border-gray-600 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-300"
+                                        class="flex min-h-10 min-w-0 flex-1 items-center rounded-md border border-dashed border-gray-300 px-3 py-2 text-left text-sm text-gray-600 hover:border-blue-400 hover:text-blue-700 dark:border-gray-600 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-300"
                                         title="Elegir archivos del disco donde corre la app (modo local)"
                                         @click="openLibrary"
                                     >
@@ -1490,7 +1508,8 @@ const formatDate = (value) => {
                         </div>
                     </div>
 
-                    <section class="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <!-- Desktop: tabla. En mobile se reemplaza por tarjetas (abajo). -->
+                    <section class="hidden overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 lg:block">
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead class="bg-gray-50 dark:bg-gray-900/50">
@@ -1713,6 +1732,177 @@ const formatDate = (value) => {
                                 </tbody>
                             </table>
                         </div>
+                    </section>
+
+                    <!-- Mobile/tablet: cada archivo como tarjeta, una debajo de otra. -->
+                    <section class="space-y-3 lg:hidden">
+                        <p
+                            v-if="!hasFiles"
+                            class="rounded-lg border border-gray-200 bg-white px-4 py-12 text-center text-sm text-gray-500 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                        >
+                            Sin archivos
+                        </p>
+                        <article
+                            v-for="file in files"
+                            :key="file.id"
+                            class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                        >
+                            <!-- Nombre / renombrar -->
+                            <div
+                                v-if="renamingFileId === file.id"
+                                class="flex items-center gap-1.5"
+                            >
+                                <input
+                                    :ref="setRenameInputElMobile"
+                                    v-model="renameDraft"
+                                    type="text"
+                                    maxlength="255"
+                                    :disabled="savingRename"
+                                    class="block w-full rounded-md border-gray-300 px-2 py-1.5 text-sm font-medium text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                                    @keydown.enter.prevent="saveRename(file)"
+                                    @keydown.esc.prevent="cancelRename"
+                                />
+                                <button
+                                    type="button"
+                                    class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white transition hover:bg-blue-700 disabled:opacity-50"
+                                    :disabled="savingRename"
+                                    title="Guardar"
+                                    @click="saveRename(file)"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                    </svg>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    :disabled="savingRename"
+                                    title="Cancelar"
+                                    @click="cancelRename"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div v-else class="flex items-start justify-between gap-2">
+                                <div class="min-w-0 flex-1">
+                                    <Link
+                                        v-if="file.status === 'completed'"
+                                        class="block truncate text-sm font-semibold text-gray-900 hover:text-blue-700 dark:text-gray-100 dark:hover:text-blue-400"
+                                        :href="route('transcriptions.show', file.id)"
+                                    >
+                                        {{ file.original_name }}
+                                    </Link>
+                                    <span
+                                        v-else
+                                        class="block truncate text-sm font-semibold text-gray-500 dark:text-gray-400"
+                                        :title="`Disponible cuando termine la transcripción (estado: ${file.status})`"
+                                    >
+                                        {{ file.original_name }}
+                                    </span>
+                                    <p class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
+                                        <template v-if="file.folder">
+                                            📁
+                                            <template v-if="file.folder.parent">{{ file.folder.parent.name }} / </template>
+                                            {{ file.folder.name }}
+                                        </template>
+                                        <span v-else class="italic text-gray-400 dark:text-gray-500">Sin ordenar</span>
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                                    title="Renombrar"
+                                    aria-label="Renombrar"
+                                    @click="startRename(file)"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897L16.862 4.487zm0 0L19.5 7.125" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <!-- Estado + progreso -->
+                            <div class="mt-3 flex flex-wrap items-center gap-2">
+                                <span
+                                    class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
+                                    :class="statusClass(file.status)"
+                                >
+                                    {{ statusLabel(file.status) }}
+                                </span>
+                                <div
+                                    v-if="['queued', 'waiting_for_worker', 'enhancing', 'processing'].includes(file.status)"
+                                    class="flex flex-1 items-center gap-2"
+                                >
+                                    <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                                        <div
+                                            class="h-full rounded-full transition-all duration-300"
+                                            :class="{
+                                                'bg-orange-400': file.status === 'waiting_for_worker',
+                                                'bg-purple-500': file.status === 'enhancing',
+                                                'bg-blue-500': file.status === 'processing' || file.status === 'queued',
+                                            }"
+                                            :style="{ width: `${file.progress || 0}%` }"
+                                        />
+                                    </div>
+                                    <span class="text-xs font-medium tabular-nums text-gray-600 dark:text-gray-400">
+                                        {{ file.progress || 0 }}%
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Metadatos -->
+                            <dl class="mt-3 grid grid-cols-3 gap-2 text-xs">
+                                <div>
+                                    <dt class="text-gray-400 dark:text-gray-500">Subido</dt>
+                                    <dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-200">{{ formatDate(file.created_at) }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-gray-400 dark:text-gray-500">Duración</dt>
+                                    <dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-200">{{ formatDuration(file.duration_seconds) }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-gray-400 dark:text-gray-500">Modelo</dt>
+                                    <dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-200">{{ modelIcon(file.model) }} {{ file.model }}</dd>
+                                </div>
+                            </dl>
+
+                            <!-- Acciones -->
+                            <div class="mt-3 flex items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-700">
+                                <Link
+                                    v-if="file.status === 'completed'"
+                                    :href="route('transcriptions.show', file.id)"
+                                    class="inline-flex flex-1 items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                                >
+                                    Ver transcripción
+                                </Link>
+                                <div v-else class="flex-1"></div>
+                                <button
+                                    v-if="file.status === 'completed'"
+                                    type="button"
+                                    class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-500 transition hover:bg-blue-50 hover:text-blue-600 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-blue-900/30 dark:hover:text-blue-400"
+                                    title="Descargar transcripción"
+                                    aria-label="Descargar transcripción"
+                                    @click="openDownload(file)"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                                    </svg>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-500 transition hover:bg-rose-50 hover:text-rose-600 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-rose-900/30 dark:hover:text-rose-400"
+                                    title="Eliminar transcripción"
+                                    aria-label="Eliminar transcripción"
+                                    @click="deleteTranscription(file)"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </article>
                     </section>
                 </main>
             </div>
