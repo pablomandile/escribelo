@@ -9,13 +9,13 @@ defineOptions({ inheritAttrs: false });
 <template>
     <img
         v-bind="$attrs"
-        src="/images/logo.png"
+        src="/images/logo-transparente.png"
         alt="Escríbelo"
         class="app-logo app-logo--light"
     />
     <img
         v-bind="$attrs"
-        src="/images/logo-oscuro.png"
+        src="/images/logo-oscuro-transparente.png"
         alt="Escríbelo"
         class="app-logo app-logo--dark"
     />

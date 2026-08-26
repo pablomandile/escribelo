@@ -25,7 +25,7 @@ defineProps({
         class="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-black via-zinc-900 to-yellow-500 px-6"
     >
         <img
-            src="/images/logo.png"
+            src="/images/logo-transparente.png"
             alt="Escríbelo"
             class="w-full max-w-md sm:max-w-lg lg:max-w-2xl [filter:drop-shadow(0_0_25px_rgba(255,255,255,0.8))_drop-shadow(0_0_60px_rgba(255,255,255,0.5))]"
         />
