@@ -1510,26 +1510,26 @@ const formatDate = (value) => {
 
                     <!-- Desktop: tabla. En mobile se reemplaza por tarjetas (abajo). -->
                     <section class="hidden overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 lg:block">
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <div class="w-full">
+                            <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead class="bg-gray-50 dark:bg-gray-900/50">
                                     <tr>
-                                        <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                             Nombre
                                         </th>
-                                        <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        <th class="w-40 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                             Subido
                                         </th>
-                                        <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        <th class="w-24 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                             Duracion
                                         </th>
-                                        <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        <th class="w-28 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                             Modelo
                                         </th>
-                                        <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        <th class="w-32 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                             Estado
                                         </th>
-                                        <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        <th class="w-28 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                             <span class="sr-only">Acciones</span>
                                         </th>
                                     </tr>
@@ -1538,7 +1538,7 @@ const formatDate = (value) => {
                                     <tr v-if="!hasFiles">
                                         <td
                                             colspan="6"
-                                            class="px-5 py-12 text-center text-sm text-gray-500 dark:text-gray-400"
+                                            class="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400"
                                         >
                                             Sin archivos
                                         </td>
@@ -1552,7 +1552,7 @@ const formatDate = (value) => {
                                         @dragstart="onFileDragStart($event, file.id)"
                                         @dragend="onFileDragEnd"
                                     >
-                                        <td class="max-w-md px-5 py-4">
+                                        <td class="px-4 py-4 align-top">
                                             <div
                                                 v-if="renamingFileId === file.id"
                                                 class="flex items-center gap-1.5"
@@ -1599,15 +1599,16 @@ const formatDate = (value) => {
                                             >
                                                 <Link
                                                     v-if="file.status === 'completed'"
-                                                    class="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 hover:text-blue-700 dark:text-gray-100 dark:hover:text-blue-400"
+                                                    class="line-clamp-2 min-w-0 flex-1 break-words text-sm font-medium text-gray-900 hover:text-blue-700 dark:text-gray-100 dark:hover:text-blue-400"
                                                     :href="route('transcriptions.show', file.id)"
+                                                    :title="file.original_name"
                                                     draggable="false"
                                                 >
                                                     {{ file.original_name }}
                                                 </Link>
                                                 <span
                                                     v-else
-                                                    class="min-w-0 flex-1 cursor-not-allowed truncate text-sm font-medium text-gray-500 dark:text-gray-400"
+                                                    class="line-clamp-2 min-w-0 flex-1 cursor-not-allowed break-words text-sm font-medium text-gray-500 dark:text-gray-400"
                                                     :title="`Disponible cuando termine la transcripción (estado: ${file.status})`"
                                                 >
                                                     {{ file.original_name }}
@@ -1641,16 +1642,16 @@ const formatDate = (value) => {
                                                 </span>
                                             </p>
                                         </td>
-                                        <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
+                                        <td class="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
                                             {{ formatDate(file.created_at) }}
                                         </td>
-                                        <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
+                                        <td class="whitespace-nowrap px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
                                             {{ formatDuration(file.duration_seconds) }}
                                         </td>
-                                        <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
+                                        <td class="whitespace-nowrap px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-400">
                                             {{ file.model }}
                                         </td>
-                                        <td class="whitespace-nowrap px-5 py-4">
+                                        <td class="px-4 py-4 align-top">
                                             <div class="flex flex-col gap-1.5">
                                                 <span
                                                     class="inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold"
@@ -1660,9 +1661,9 @@ const formatDate = (value) => {
                                                 </span>
                                                 <div
                                                     v-if="['queued', 'waiting_for_worker', 'enhancing', 'processing'].includes(file.status)"
-                                                    class="flex items-center gap-2"
+                                                    class="flex min-w-0 items-center gap-2"
                                                 >
-                                                    <div class="h-1.5 w-24 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                                                    <div class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                                                         <div
                                                             class="h-full rounded-full transition-all duration-300"
                                                             :class="{
@@ -1679,7 +1680,7 @@ const formatDate = (value) => {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="whitespace-nowrap px-5 py-4 text-right">
+                                        <td class="px-4 py-4 align-top text-right">
                                             <div class="flex items-center justify-end gap-1">
                                                 <button
                                                     v-if="file.status === 'completed'"
