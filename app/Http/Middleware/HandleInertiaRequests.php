@@ -2,8 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use Closure;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Inertia\Support\Header;
+use Symfony\Component\HttpFoundation\Response;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -13,6 +16,31 @@ class HandleInertiaRequests extends Middleware
      * @var string
      */
     protected $rootView = 'app';
+
+    /**
+     * La misma URL de Inertia devuelve dos cuerpos según el header X-Inertia:
+     * HTML para una navegación, JSON para un XHR. Lo único que los distingue en
+     * la caché es `Vary: X-Inertia`, que el CDN de Hostinger borra al comprimir
+     * con brotli. Sumado a que `no-cache` (el default) permite GUARDAR y sólo
+     * obliga a revalidar —y una navegación de historial saltea la revalidación—,
+     * al restaurar una pestaña descartada puede aparecer el JSON crudo en
+     * pantalla. El fix: `no-store` SÓLO en la respuesta XHR (nunca en el HTML,
+     * que mataría el back/forward cache de Chrome).
+     */
+    public function handle(Request $request, Closure $next): Response
+    {
+        $response = parent::handle($request, $next);
+
+        // Se declara igual aunque el CDN lo borre: es lo correcto y lo respeta
+        // cualquier intermediario que no lo pise.
+        $response->headers->set('Vary', Header::INERTIA.', Accept-Encoding');
+
+        if ($request->header(Header::INERTIA)) {
+            $response->headers->set('Cache-Control', 'no-store, private');
+        }
+
+        return $response;
+    }
 
     /**
      * Determine the current asset version.
