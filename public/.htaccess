@@ -23,3 +23,23 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# Límites de subida. Sin esto el server acepta 256 MB por request y una tanda de
+# mp3 se corta con un 413 "Content Too Large" antes de llegar a Laravel.
+#
+# Tiene que ser por php_value: en Hostinger `user_ini.filename` viene vacío, o
+# sea que el mecanismo de .user.ini está apagado y ese archivo no haría nada.
+# Este LiteSpeed sí interpreta las directivas estilo mod_php.
+#
+# El <IfModule> no es decorativo: si el Apache local (Laragon) corre PHP por
+# FastCGI en vez de mod_php, un php_value suelto le tira 500 a todo el sitio.
+# LiteSpeed matchea igual este bloque, así que en el server aplica.
+#
+# hPanel -> Avanzado -> Configuración PHP puede pisar estos valores. La app no
+# confía en el número: lo lee con ini_get() y valida contra el efectivo
+# (escribelo_upload_limits() en app/helpers.php).
+<IfModule mod_php.c>
+    php_value upload_max_filesize 512M
+    php_value post_max_size 512M
+    php_value max_input_time 600
+</IfModule>

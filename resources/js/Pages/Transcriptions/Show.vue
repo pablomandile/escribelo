@@ -7,11 +7,13 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { marked } from 'marked';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
+import { useUploadLimits } from '@/composables/useUploadLimits';
 
 marked.setOptions({ gfm: true, breaks: false });
 
 const { open: openConfirm } = useConfirm();
 const toast = useToast();
+const { rejectionReason } = useUploadLimits();
 
 const transcriptionOpen = ref(true);
 const transcriptionDataOpen = ref(false);
@@ -330,6 +332,16 @@ const triggerReupload = () => reuploadInput.value?.click();
 const onReuploadSelected = (e) => {
     const f = e.target.files?.[0];
     if (! f) return;
+
+    // Igual que en el dashboard: cortamos antes de mandar si el server no lo
+    // va a aceptar, así no se come un 413 después de esperar la subida.
+    const reason = rejectionReason([f]);
+    if (reason) {
+        toast.error(reason, { duration: 8000 });
+        if (reuploadInput.value) reuploadInput.value.value = '';
+        return;
+    }
+
     reuploading.value = true;
     router.post(route('transcriptions.reconnect', props.file.id), { audio: f }, {
         forceFormData: true,

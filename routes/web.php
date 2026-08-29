@@ -10,6 +10,7 @@ use App\Http\Controllers\AudioLibraryController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TranscriptionFileController;
 use App\Http\Controllers\TranscriptionFolderController;
+use App\Http\Controllers\WorkerAnnounceController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -27,6 +28,12 @@ Route::get('/', function () {
 Route::middleware('auth')->group(function () {
     Route::get('/account/pending', [AccountController::class, 'pending'])->name('account.pending');
 });
+
+// El worker remoto avisa su URL (el tunel de Cloudflare cambia de hostname en
+// cada arranque). Sin sesion: se autentica con el Bearer token compartido.
+Route::post('/worker/announce', WorkerAnnounceController::class)
+    ->middleware('throttle:20,1')
+    ->name('worker.announce');
 
 Route::get('/escribelo', [TranscriptionFileController::class, 'index'])
     ->middleware(['auth', 'verified', 'approved'])

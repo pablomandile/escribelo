@@ -74,6 +74,10 @@ class HandleInertiaRequests extends Middleware
                 ]) : null,
             ],
             'appMode' => fn () => escribelo_mode(),
+            // Lo que el PHP de este server acepta de verdad en un POST. La UI
+            // valida contra esto antes de mandar, así el usuario ve un mensaje
+            // claro en vez del 413 del server.
+            'uploadLimits' => fn () => escribelo_upload_limits(),
             'flash' => [
                 'success' => fn () => $request->session()->get('status') ?? $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

@@ -5,12 +5,14 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
+import { formatBytes, useUploadLimits } from '@/composables/useUploadLimits';
 import { playBeep, primeBeepOnFirstGesture } from '@/utils/beep';
 
 primeBeepOnFirstGesture();
 
 const { open: openConfirm } = useConfirm();
 const toast = useToast();
+const { limits: uploadLimits, rejectionReason } = useUploadLimits();
 
 const props = defineProps({
     files: {
@@ -450,6 +452,17 @@ const triggerUpload = () => uploadInput.value?.click();
 const onFilesSelected = (e) => {
     const files = Array.from(e.target.files || []);
     if (! files.length) return;
+
+    // Chequeo previo contra los límites reales del server. Sin esto la subida
+    // arranca igual, tarda lo que tarde, y recién al final PHP corta con 413:
+    // el usuario espera de gusto y no recibe ningún mensaje entendible.
+    const reason = rejectionReason(files);
+    if (reason) {
+        toast.error(reason, { duration: 8000 });
+        if (uploadInput.value) uploadInput.value.value = '';
+        return;
+    }
+
     uploadForm.files = files;
     uploadForm.transcription_folder_id = form.transcription_folder_id;
     uploadForm.model = form.model;
@@ -1110,6 +1123,10 @@ const formatDate = (value) => {
                                     class="hidden"
                                     @change="onFilesSelected"
                                 >
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    «Subir archivo» manda los audios apenas los elegís (no hace falta tocar Enviar).
+                                    Hasta {{ formatBytes(uploadLimits.per_file) }} por archivo y {{ formatBytes(uploadLimits.per_request) }} por tanda.
+                                </p>
                                 <p
                                     v-if="form.errors.paths || form.errors['paths.0'] || uploadForm.errors.files || uploadForm.errors['files.0']"
                                     class="mt-1 text-sm text-rose-600 dark:text-rose-400"

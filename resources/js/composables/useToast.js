@@ -22,7 +22,8 @@ export function useToast() {
         show,
         dismiss,
         success: (msg, opts) => show(msg, { ...opts, type: 'success' }),
-        error: (msg, opts) => show(msg, { ...opts, type: 'error', duration: 6000 }),
+        // `duration` va antes del spread para que el caller pueda pisarla.
+        error: (msg, opts) => show(msg, { duration: 6000, ...opts, type: 'error' }),
         info: (msg, opts) => show(msg, { ...opts, type: 'info' }),
     };
 }

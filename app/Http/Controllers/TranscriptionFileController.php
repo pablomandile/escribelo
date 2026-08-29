@@ -101,9 +101,14 @@ class TranscriptionFileController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        // El tope no es fijo: es lo que este PHP admite (upload_max_filesize /
+        // post_max_size), acotado por el tope propio de la app. Hardcodear 500 MB
+        // acá hacía que el form aceptara subidas que el server rechazaba con 413.
+        $maxKb = intdiv(escribelo_upload_limits()['per_file'], 1024);
+
         $validated = $request->validate([
             'files' => ['required', 'array', 'min:1', 'max:10'],
-            'files.*' => ['required', 'file', 'max:512000', 'mimes:mp3,wav,m4a,mp4,webm,ogg,oga,flac,aac'],
+            'files.*' => ['required', 'file', 'max:'.$maxKb, 'mimes:mp3,wav,m4a,mp4,webm,ogg,oga,flac,aac'],
             'transcription_folder_id' => ['nullable', 'integer', 'exists:transcription_folders,id'],
             'model' => ['required', 'string', 'in:tiny,base,small,medium,large,large-v2,large-v3,turbo'],
             'language' => ['nullable', 'string', 'max:12'],
@@ -238,7 +243,7 @@ class TranscriptionFileController extends Controller
         abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
 
         $validated = $request->validate([
-            'audio' => ['required', 'file', 'max:512000', 'mimes:mp3,wav,m4a,mp4,webm,ogg,oga,flac,aac'],
+            'audio' => ['required', 'file', 'max:'.intdiv(escribelo_upload_limits()['per_file'], 1024), 'mimes:mp3,wav,m4a,mp4,webm,ogg,oga,flac,aac'],
         ]);
 
         $user = $request->user();
