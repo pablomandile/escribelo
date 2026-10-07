@@ -47,3 +47,11 @@ createInertiaApp({
         color: '#4B5563',
     },
 });
+
+// El ?v= saltea copias viejas de sw.js en el CDN; no hace falta subirlo en cada
+// deploy porque .htaccess lo sirve con no-cache.
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js?v=1').catch(() => {});
+    });
+}

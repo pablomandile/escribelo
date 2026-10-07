@@ -43,3 +43,19 @@
     php_value post_max_size 512M
     php_value max_input_time 600
 </IfModule>
+
+# PWA. Sin el AddType muchos hostings sirven el manifest como text/plain.
+<IfModule mod_mime.c>
+    AddType application/manifest+json .webmanifest
+</IfModule>
+
+# sw.js y el manifest son por donde el navegador se entera de que hay versión
+# nueva: si el CDN de Hostinger los cachea (max-age de 7 días por defecto), las
+# actualizaciones no llegan hasta que expire. El Expires de mod_expires se borra
+# para que no contradiga al max-age=0.
+<IfModule mod_headers.c>
+    <FilesMatch "^(sw\.js|manifest\.webmanifest)$">
+        Header set Cache-Control "no-cache, must-revalidate, max-age=0"
+        Header unset Expires
+    </FilesMatch>
+</IfModule>

@@ -1,0 +1,16 @@
+{
+    "name": "Escríbelo",
+    "short_name": "Escríbelo",
+    "description": "Transcripción y resúmenes de audio.",
+    "start_url": "/escribelo",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#ffffff",
+    "lang": "es-AR",
+    "icons": [
+        { "src": "/icons/icon-192.png?v=1", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "/icons/icon-512.png?v=1", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "/icons/icon-maskable-512.png?v=1", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ]
+}

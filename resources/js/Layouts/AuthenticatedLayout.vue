@@ -7,6 +7,7 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import ToastContainer from '@/Components/ToastContainer.vue';
+import InstallAppButton from '@/Components/InstallAppButton.vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 
 const showingNavigationDropdown = ref(false);
@@ -89,7 +90,10 @@ const toggleTheme = () => {
                             </div>
                         </div>
 
-                        <div class="hidden sm:ms-6 sm:flex sm:items-center">
+                        <div class="hidden sm:ms-6 sm:flex sm:items-center sm:gap-1">
+                            <!-- Instalar app (solo si todavía no está instalada) -->
+                            <InstallAppButton />
+
                             <!-- Theme toggle -->
                             <button
                                 type="button"
@@ -281,6 +285,10 @@ const toggleTheme = () => {
                         </div>
 
                         <div class="mt-3 space-y-1">
+                            <InstallAppButton
+                                variant="row"
+                                @done="showingNavigationDropdown = false"
+                            />
                             <ResponsiveNavLink :href="route('profile.edit')">
                                 Perfil
                             </ResponsiveNavLink>
