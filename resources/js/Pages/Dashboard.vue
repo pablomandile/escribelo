@@ -1671,11 +1671,22 @@ const formatDate = (value) => {
                                         <td class="px-4 py-4 align-top">
                                             <div class="flex flex-col gap-1.5">
                                                 <span
-                                                    class="inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold"
-                                                    :class="[statusClass(file.status), file.status === 'failed' && file.error_message ? 'cursor-help' : '']"
-                                                    :title="file.status === 'failed' ? (file.error_message || 'Error sin detalle') : undefined"
+                                                    class="group relative inline-flex w-fit"
+                                                    :tabindex="file.status === 'failed' ? 0 : undefined"
                                                 >
-                                                    {{ statusLabel(file.status) }}
+                                                    <span
+                                                        class="inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold"
+                                                        :class="statusClass(file.status)"
+                                                    >
+                                                        {{ statusLabel(file.status) }}
+                                                    </span>
+                                                    <span
+                                                        v-if="file.status === 'failed'"
+                                                        role="tooltip"
+                                                        class="pointer-events-none invisible absolute left-0 top-full z-50 mt-1 w-64 max-w-[80vw] whitespace-normal rounded-md bg-gray-900 px-3 py-2 text-xs font-normal leading-snug text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus:visible group-focus:opacity-100"
+                                                    >
+                                                        {{ file.error_message || 'Error sin detalle' }}
+                                                    </span>
                                                 </span>
                                                 <div
                                                     v-if="['queued', 'waiting_for_worker', 'enhancing', 'processing'].includes(file.status)"
@@ -1845,11 +1856,22 @@ const formatDate = (value) => {
                             <!-- Estado + progreso -->
                             <div class="mt-3 flex flex-wrap items-center gap-2">
                                 <span
-                                    class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
-                                    :class="[statusClass(file.status), file.status === 'failed' && file.error_message ? 'cursor-help' : '']"
-                                    :title="file.status === 'failed' ? (file.error_message || 'Error sin detalle') : undefined"
+                                    class="group relative inline-flex w-fit"
+                                    :tabindex="file.status === 'failed' ? 0 : undefined"
                                 >
-                                    {{ statusLabel(file.status) }}
+                                    <span
+                                        class="inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold"
+                                        :class="statusClass(file.status)"
+                                    >
+                                        {{ statusLabel(file.status) }}
+                                    </span>
+                                    <span
+                                        v-if="file.status === 'failed'"
+                                        role="tooltip"
+                                        class="pointer-events-none invisible absolute left-0 top-full z-50 mt-1 w-64 max-w-[80vw] whitespace-normal rounded-md bg-gray-900 px-3 py-2 text-xs font-normal leading-snug text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus:visible group-focus:opacity-100"
+                                    >
+                                        {{ file.error_message || 'Error sin detalle' }}
+                                    </span>
                                 </span>
                                 <div
                                     v-if="['queued', 'waiting_for_worker', 'enhancing', 'processing'].includes(file.status)"
