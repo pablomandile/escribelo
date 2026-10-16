@@ -80,6 +80,7 @@ class RemoteApiTranscriber implements TranscriberInterface
             $buffer = '';
             $finalResult = null;
             $cleanedB64 = null;
+            $workerError = null;
 
             while (! $body->eof()) {
                 $chunk = $body->read(8192);
@@ -102,12 +103,18 @@ class RemoteApiTranscriber implements TranscriberInterface
                         $cleanedB64 = $payload['cleaned_audio_b64'] ?? null;
                         continue;
                     }
+                    if (isset($payload['error'])) {
+                        $workerError = (string) $payload['error'];
+                        continue;
+                    }
                     $onEvent($payload);
                 }
             }
 
             if ($finalResult === null) {
-                throw new \RuntimeException('Worker remoto no devolvió payload final.');
+                throw new \RuntimeException($workerError !== null
+                    ? 'Worker remoto: '.$workerError
+                    : 'Worker remoto cortó la conexión antes de devolver el resultado (¿se reinició el worker o se cayó el túnel?).');
             }
 
             file_put_contents(

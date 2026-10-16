@@ -1672,7 +1672,8 @@ const formatDate = (value) => {
                                             <div class="flex flex-col gap-1.5">
                                                 <span
                                                     class="inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold"
-                                                    :class="statusClass(file.status)"
+                                                    :class="[statusClass(file.status), file.status === 'failed' && file.error_message ? 'cursor-help' : '']"
+                                                    :title="file.status === 'failed' ? (file.error_message || 'Error sin detalle') : undefined"
                                                 >
                                                     {{ statusLabel(file.status) }}
                                                 </span>
@@ -1845,7 +1846,8 @@ const formatDate = (value) => {
                             <div class="mt-3 flex flex-wrap items-center gap-2">
                                 <span
                                     class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
-                                    :class="statusClass(file.status)"
+                                    :class="[statusClass(file.status), file.status === 'failed' && file.error_message ? 'cursor-help' : '']"
+                                    :title="file.status === 'failed' ? (file.error_message || 'Error sin detalle') : undefined"
                                 >
                                     {{ statusLabel(file.status) }}
                                 </span>
