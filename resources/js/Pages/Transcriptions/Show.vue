@@ -443,6 +443,17 @@ const formatTime = (seconds) => {
     return `${minutes}:${String(rest).padStart(2, '0')}`;
 };
 
+const formatElapsed = (seconds) => {
+    const total = Math.max(Math.round(seconds || 0), 0);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+
+    if (h > 0) return `${h} h ${m} min`;
+    if (m > 0) return `${m} min ${s} s`;
+    return `${s} s`;
+};
+
 const statusLabel = (status) => ({
     queued: 'En cola',
     waiting_for_worker: 'Esperando worker',
@@ -614,7 +625,7 @@ const statusLabel = (status) => ({
                         <div
                             v-show="transcriptionDataOpen"
                             id="transcription-data"
-                            class="mt-3 grid gap-4 text-sm text-white/90 sm:grid-cols-4"
+                            class="mt-3 grid gap-4 text-sm text-white/90 sm:grid-cols-3 lg:grid-cols-5"
                         >
                             <div>
                                 <p class="font-semibold text-white">Modelo</p>
@@ -631,6 +642,10 @@ const statusLabel = (status) => ({
                             <div>
                                 <p class="font-semibold text-white">Segmentos</p>
                                 <p>{{ segmentsCount }}</p>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-white">Tiempo de transcripción</p>
+                                <p>{{ file.processing_seconds != null ? formatElapsed(file.processing_seconds) : '-' }}</p>
                             </div>
                         </div>
                     </div>

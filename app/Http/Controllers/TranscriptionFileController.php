@@ -917,6 +917,9 @@ class TranscriptionFileController extends Controller
             'has_cleaned_audio' => (bool) $file->cleaned_audio_path,
             'audio_available' => $audioAvailable,
             'error_message' => $file->error_message,
+            'processing_seconds' => $file->started_at && $file->processed_at
+                ? max(0, $file->started_at->diffInSeconds($file->processed_at, true))
+                : null,
             'processed_at' => $file->processed_at?->toIso8601String(),
             'created_at' => $file->created_at?->toIso8601String(),
             'audio_metadata' => $audioMetadata,

@@ -28,6 +28,7 @@ class TranscriptionFile extends Model
         'progress',
         'worker_pid',
         'error_message',
+        'started_at',
         'processed_at',
     ];
 
@@ -36,6 +37,7 @@ class TranscriptionFile extends Model
         return [
             'duration_seconds' => 'float',
             'clean_audio' => 'boolean',
+            'started_at' => 'datetime',
             'processed_at' => 'datetime',
         ];
     }

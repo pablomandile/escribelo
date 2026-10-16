@@ -40,6 +40,7 @@ class ProcessTranscriptionFile implements ShouldQueue
             'status' => $file->clean_audio ? 'enhancing' : 'processing',
             'progress' => 0,
             'error_message' => null,
+            'started_at' => now(),
         ]);
 
         $audioPath = $file->absolutePath();
