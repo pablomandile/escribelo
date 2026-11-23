@@ -48,6 +48,9 @@ return [
     'ollama' => [
         'base_url' => env('OLLAMA_BASE_URL', 'http://localhost:11434'),
         'summary_model' => env('OLLAMA_SUMMARY_MODEL', 'gemma4:e4b'),
+        // 1.5 escribía mal (evitaba repetir hasta "la"/"el" y salían "A reunión",
+        // "deagua", inglés mezclado). 1.15 probado con 76k caracteres sin bucles.
+        'summary_repeat_penalty' => (float) env('OLLAMA_SUMMARY_REPEAT_PENALTY', 1.15),
         // Modo local. En modo host manda OLLAMA_TRANSLATE_MODEL (o, si no está,
         // OLLAMA_SUMMARY_MODEL) del worker de la PC.
         'translate_model' => env('OLLAMA_TRANSLATE_MODEL', env('OLLAMA_SUMMARY_MODEL', 'gemma4:e4b')),

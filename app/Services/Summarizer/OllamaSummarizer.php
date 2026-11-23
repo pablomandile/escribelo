@@ -212,9 +212,10 @@ TXT,
                 // 0.3 entraba en loops de repetición ("relator-docente-relator-docente..."
                 // generando hasta consumir num_predict). 0.5 + repeat_penalty saca al modelo
                 // del bucle cuando se atasca en un token. top_p y top_k limitan la creatividad
-                // para que el output JSON no se descarrile.
+                // para que el output JSON no se descarrile. El repeat_penalty viene de
+                // config (1.15): con 1.5 el castellano salía roto (ver config/services.php).
                 'temperature' => 0.5,
-                'repeat_penalty' => 1.5,
+                'repeat_penalty' => (float) config('services.ollama.summary_repeat_penalty', 1.5),
                 'top_p' => 0.9,
                 'top_k' => 40,
                 // Partial: 3072 para notas + key_points sin truncar.
@@ -275,17 +276,15 @@ TXT,
             throw new SummarizerException('Ollama devolvió una respuesta inválida.');
         }
 
-        $keyPoints = array_values(array_filter(
-            array_map('strval', $parsed['key_points'] ?? []),
-            fn ($s) => trim($s) !== '',
-        ));
+        $keyPoints = $this->normalizeStringList($parsed['key_points'] ?? []);
 
         // En single/final, el modelo devuelve summary (intro + resumen general) + arrays
         // separados para puntos / temas / tecnologías. Los reensamblamos en un markdown
         // unificado que es lo que vive en transcriptions.summary y renderiza el frontend.
         // En partial, dejamos summary tal cual (texto plano de notas) y key_points como array,
         // porque el reduce final los consume así.
-        $summary = (string) $parsed['summary'];
+        // Gemma a veces escribe el token de salto de línea literal ("<0x0D>", "<0x0A>").
+        $summary = str_replace(['<0x0D><0x0A>', '<0x0D>', '<0x0A>'], "\n", (string) $parsed['summary']);
         if ($mode !== 'partial') {
             $summary = $this->assembleFinalMarkdown(
                 summary: $summary,
@@ -304,19 +303,43 @@ TXT,
         ];
     }
 
+    /**
+     * Lista de strings a partir de lo que devuelva el modelo. Gemma a veces manda
+     * los ítems como objetos ({"punto": "...", "detalle": "..."}) en vez de strings:
+     * se unen sus valores de texto en vez de reventar con "Array to string".
+     */
     private function normalizeStringList(mixed $value): array
     {
         if (! is_array($value)) {
             return [];
         }
+
         return array_values(array_filter(
-            array_map(fn ($s) => trim((string) $s), $value),
+            array_map(fn ($item) => $this->itemToString($item), $value),
             fn ($s) => $s !== '',
         ));
     }
 
+    private function itemToString(mixed $item): string
+    {
+        if (is_array($item)) {
+            $texts = array_filter(
+                array_map(fn ($v) => is_scalar($v) ? trim((string) $v) : $this->itemToString($v), array_values($item)),
+                fn ($s) => $s !== '',
+            );
+
+            return implode(': ', $texts);
+        }
+
+        return is_scalar($item) ? trim((string) $item) : '';
+    }
+
     private function assembleFinalMarkdown(string $summary, array $keyPoints, array $mainTopics, array $technologies): string
     {
+        // El modelo a veces pega el encabezado al párrafo anterior ("...física. ## Resumen
+        // general"): sin salto de línea antes, markdown no lo toma como título.
+        $summary = preg_replace('/(?<=\S)[ \t]*(#{2,3} )/u', "\n\n$1", $summary);
+
         $sections = [rtrim($summary)];
 
         if (! empty($keyPoints)) {
