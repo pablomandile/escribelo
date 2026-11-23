@@ -158,7 +158,16 @@ const dirnameOf = (path) => {
     return idx > 0 ? path.slice(0, idx) : null;
 };
 
+// En la demo no tiene sentido abrir el selector: el server rechazaría el envío.
+const blockedByDemo = () => {
+    // `page` (usePage) se define más abajo; acá solo se usa al hacer clic.
+    if (! page.props.demo) return false;
+    toast.error(page.props.demo.message);
+    return true;
+};
+
 const openLibrary = async () => {
+    if (blockedByDemo()) return;
     libraryOpen.value = true;
     const remembered = libraryListing.value.path
         || localStorage.getItem(LIBRARY_LAST_PATH_KEY);
@@ -441,7 +450,10 @@ const uploadForm = useForm({
 });
 const pendingUploads = ref([]);
 const uploadInput = ref(null);
-const triggerUpload = () => uploadInput.value?.click();
+const triggerUpload = () => {
+    if (blockedByDemo()) return;
+    uploadInput.value?.click();
+};
 const uploadKey = (f) => `${f.name}|${f.size}|${f.lastModified}`;
 
 const onFilesSelected = (e) => {

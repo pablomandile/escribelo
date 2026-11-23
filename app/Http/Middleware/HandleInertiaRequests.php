@@ -78,6 +78,13 @@ class HandleInertiaRequests extends Middleware
             // valida contra esto antes de mandar, así el usuario ve un mensaje
             // claro en vez del 413 del server.
             'uploadLimits' => fn () => escribelo_upload_limits(),
+            // Con APP_DEMO=true: los datos de la cuenta demo (el login los muestra) y
+            // el aviso para los botones que en la demo no hacen nada. Si no, null.
+            'demo' => fn () => config('demo.enabled') ? [
+                'email' => config('demo.email'),
+                'password' => config('demo.password'),
+                'message' => \App\Http\Middleware\ProtectDemo::MESSAGE,
+            ] : null,
             'flash' => [
                 'success' => fn () => $request->session()->get('status') ?? $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

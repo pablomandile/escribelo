@@ -22,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
             \App\Http\Middleware\HandlePostTooLarge::class,
+            // Solo actúa con APP_DEMO=true.
+            \App\Http\Middleware\ProtectDemo::class,
         ]);
 
         // El worker no tiene sesion ni cookie: se autentica con el Bearer token

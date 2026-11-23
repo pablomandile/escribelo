@@ -1,0 +1,71 @@
+{
+    "_comentario": "Contenido de la demo. Los textos son originales (sin derechos de terceros). generar-audios.ps1 los lee con las voces de Windows y deja los mp3 en audio/; `php artisan escribelo:demo-armar` los pasa por el pipeline real (Whisper + Gemma) y escribe fixture.json, que es lo que carga `escribelo:demo-reset`.",
+    "audios": [
+        {
+            "slug": "clase-ciclo-del-agua",
+            "original_name": "Clase 4 - El ciclo del agua.mp3",
+            "folder": ["Facultad", "Ciencias Naturales"],
+            "language": "es",
+            "model": "medium",
+            "days_ago": 6,
+            "translate": ["en"],
+            "lines": [
+                { "voice": "Laura", "text": "Buenas tardes a todos. Hoy cerramos la unidad de hidrología con un tema que ya conocen de la escuela, pero que vamos a mirar con un poco más de detalle: el ciclo del agua." },
+                { "voice": "Laura", "text": "Empecemos por un dato que siempre sorprende. Casi el noventa y siete por ciento del agua del planeta está en los océanos, y es salada. Del tres por ciento restante, la mayor parte está congelada en los glaciares y en los casquetes polares. O sea que el agua dulce a la que podemos acceder fácilmente, en ríos, lagos y napas, es una fracción muy chica del total." },
+                { "voice": "Laura", "text": "El motor de todo el ciclo es el Sol. Su energía calienta la superficie de los océanos y el agua se evapora. A eso se suma la transpiración de las plantas, que liberan vapor por las hojas. Por eso muchas veces hablamos de evapotranspiración, como un solo proceso." },
+                { "voice": "Laura", "text": "Ese vapor sube, se enfría y se condensa en pequeñas gotas alrededor de partículas de polvo: así se forman las nubes. Cuando las gotas crecen lo suficiente, caen como precipitación, ya sea lluvia, nieve o granizo." },
+                { "voice": "Laura", "text": "Una vez en el suelo, el agua puede seguir dos caminos. Una parte escurre por la superficie y alimenta arroyos y ríos, que tarde o temprano vuelven al mar. La otra parte se infiltra en el suelo y recarga los acuíferos, que son las reservas de agua subterránea de las que dependen muchas ciudades." },
+                { "voice": "Laura", "text": "Algo importante para el parcial: el tiempo que el agua pasa en cada lugar es muy distinto. En la atmósfera, una molécula de agua se queda en promedio unos nueve días. En un océano, en cambio, puede quedarse miles de años." },
+                { "voice": "Laura", "text": "Para la próxima clase les pido una tarea práctica. Armen un pluviómetro casero con una botella de plástico cortada y una regla, y registren la lluvia de su barrio durante dos semanas. Después vamos a comparar los resultados entre todos. Nos vemos el jueves." }
+            ]
+        },
+        {
+            "slug": "reunion-lanzamiento",
+            "original_name": "Reunión de equipo - lanzamiento 2.0.mp3",
+            "folder": ["Trabajo"],
+            "language": "es",
+            "model": "medium",
+            "days_ago": 2,
+            "translate": ["en", "pt"],
+            "lines": [
+                { "voice": "Pablo", "text": "Bueno, arrancamos. La idea de hoy es repasar cómo estamos con el lanzamiento de la versión dos punto cero de la aplicación, que sale el jueves que viene. Sofía, ¿cómo viene el diseño?" },
+                { "voice": "Laura", "text": "Bien. Las pantallas nuevas del registro ya están aprobadas. Lo único que falta es ajustar los colores del modo oscuro, porque en algunos teléfonos el contraste queda muy bajo. Calculo que el lunes lo tengo terminado." },
+                { "voice": "Pablo", "text": "Perfecto. Carla, ¿qué está viendo soporte con la versión de prueba?" },
+                { "voice": "Helena", "text": "La mayoría de los comentarios son buenos. El problema que más se repite es que algunas personas no reciben el correo de confirmación. Revisamos y casi siempre termina en la carpeta de correo no deseado. Propongo agregar un aviso en la pantalla que diga que revisen esa carpeta." },
+                { "voice": "Pablo", "text": "Me parece bien, es un cambio chico. Lo sumamos antes del lanzamiento. ¿Algo más?" },
+                { "voice": "Laura", "text": "Sí, una cosa. Para la comunicación necesitamos las capturas finales. Si las sacamos el martes, llegamos a armar las publicaciones para las redes." },
+                { "voice": "Pablo", "text": "Entonces quedamos así: Sofía cierra el modo oscuro el lunes, Carla redacta el aviso del correo no deseado, y el martes sacamos las capturas. Si aparece algún error grave en las pruebas, movemos el lanzamiento una semana. Gracias a todos." }
+            ]
+        },
+        {
+            "slug": "podcast-remote-work",
+            "original_name": "Small Steps - episode 12.mp3",
+            "folder": ["Podcasts"],
+            "language": "en",
+            "model": "small",
+            "days_ago": 9,
+            "translate": ["es", "pt"],
+            "lines": [
+                { "voice": "Zira", "text": "Welcome to Small Steps, a short podcast about working better from home. I'm your host, and today I want to share three habits that help me stay focused when there is no office around me." },
+                { "voice": "Zira", "text": "The first habit is a start-up ritual. Before I open my email, I spend five minutes writing down the one thing that would make the day a success. It sounds simple, but it changes how I make decisions for the next eight hours." },
+                { "voice": "Zira", "text": "The second habit is batching messages. Instead of answering every notification the moment it arrives, I check messages three times a day: in the morning, after lunch, and before I finish. Most things can wait an hour or two, and the deep work cannot wait at all." },
+                { "voice": "Zira", "text": "The third habit is a shutdown ritual. At the end of the day I review my list, move unfinished tasks to tomorrow, and close every tab. Then I say out loud that the workday is over. It feels a little silly, but it really helps my brain stop thinking about work at dinner." },
+                { "voice": "Zira", "text": "That's it for today. Try one of these habits this week, just one, and tell me how it goes. See you in the next episode." }
+            ]
+        },
+        {
+            "slug": "nota-viaje-mendoza",
+            "original_name": "Nota de voz - viaje a Mendoza.mp3",
+            "folder": null,
+            "language": "es",
+            "model": "medium",
+            "days_ago": 1,
+            "translate": [],
+            "lines": [
+                { "voice": "Pablo", "text": "Nota para el viaje a Mendoza. Primero, reservar el auto en el aeropuerto, que en temporada alta se agotan rápido. Segundo, confirmar la cabaña en Potrerillos para las noches del viernes y el sábado." },
+                { "voice": "Pablo", "text": "Para la valija: campera abrigada, porque de noche refresca mucho aunque de día haga calor, protector solar y zapatillas para caminar. El domingo queremos hacer la excursión al Aconcagua, así que hay que salir temprano y llevar agua." },
+                { "voice": "Pablo", "text": "Y no olvidarme de preguntar en la oficina de turismo por las bodegas que se pueden visitar sin reserva. Nada más, después lo paso en limpio." }
+            ]
+        }
+    ]
+}

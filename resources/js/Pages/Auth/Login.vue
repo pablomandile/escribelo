@@ -5,7 +5,8 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
 defineProps({
     canResetPassword: {
@@ -27,6 +28,14 @@ const submit = () => {
         onFinish: () => form.reset('password'),
     });
 };
+
+// Modo demo: cuenta compartida, sin Google ni recuperar contraseña.
+const demo = computed(() => usePage().props.demo);
+const enterDemo = () => {
+    form.email = demo.value.email;
+    form.password = demo.value.password;
+    submit();
+};
 </script>
 
 <template>
@@ -37,7 +46,31 @@ const submit = () => {
             {{ status }}
         </div>
 
+        <div
+            v-if="demo"
+            class="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/30"
+        >
+            <p class="text-sm font-semibold text-blue-900 dark:text-blue-100">Probá la demo</p>
+            <p class="mt-1 text-sm text-blue-800 dark:text-blue-200">
+                Una cuenta con audios ya transcriptos, resumidos y traducidos. Podés recorrer todo;
+                subir y procesar audios está desactivado. Se reinicia todas las noches.
+            </p>
+            <p class="mt-2 break-words text-xs text-blue-800 dark:text-blue-200">
+                Usuario <code class="rounded bg-white/70 px-1 dark:bg-gray-800">{{ demo.email }}</code>
+                · contraseña <code class="rounded bg-white/70 px-1 dark:bg-gray-800">{{ demo.password }}</code>
+            </p>
+            <button
+                type="button"
+                class="mt-3 inline-flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                :disabled="form.processing"
+                @click="enterDemo"
+            >
+                Entrar a la demo
+            </button>
+        </div>
+
         <a
+            v-if="! demo"
             :href="route('auth.google.redirect')"
             class="mb-4 flex w-full items-center justify-center gap-3 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
         >
@@ -52,7 +85,7 @@ const submit = () => {
 
         <div class="mb-4 flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
             <span class="h-px flex-1 bg-gray-200 dark:bg-gray-700"></span>
-            <span>O con email</span>
+            <span>{{ demo ? 'O a mano' : 'O con email' }}</span>
             <span class="h-px flex-1 bg-gray-200 dark:bg-gray-700"></span>
         </div>
 
@@ -99,7 +132,7 @@ const submit = () => {
 
             <div class="mt-4 flex items-center justify-end">
                 <Link
-                    v-if="canResetPassword"
+                    v-if="canResetPassword && ! demo"
                     :href="route('password.request')"
                     class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:text-gray-400 dark:hover:text-gray-100 dark:focus:ring-offset-gray-800"
                 >

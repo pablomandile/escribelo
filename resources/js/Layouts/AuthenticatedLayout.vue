@@ -316,6 +316,15 @@ const toggleTheme = () => {
                 </div>
             </nav>
 
+            <!-- Modo demo: cuenta compartida, solo para recorrer -->
+            <div
+                v-if="page.props.demo"
+                class="border-b border-blue-200 bg-blue-50 px-4 py-2 text-center text-xs text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200"
+            >
+                <strong>Demo:</strong> recorré los audios, el karaoke, los resúmenes y las traducciones.
+                Subir y procesar está desactivado, y todo vuelve a su estado original cada noche.
+            </div>
+
             <!-- Page Heading -->
             <header
                 class="bg-white shadow dark:bg-gray-800 dark:shadow-gray-950/50"

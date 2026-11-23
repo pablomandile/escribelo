@@ -1,0 +1,610 @@
+{
+    "_comentario": "Generado por `php artisan escribelo:demo-armar`. No editar a mano: cambiá guion.json y volvé a generarlo.",
+    "generated_at": "2026-11-23T17:17:43+00:00",
+    "files": [
+        {
+            "slug": "clase-ciclo-del-agua",
+            "audio": "audio/clase-ciclo-del-agua.mp3",
+            "original_name": "Clase 4 - El ciclo del agua.mp3",
+            "folder": [
+                "Facultad",
+                "Ciencias Naturales"
+            ],
+            "language": "es",
+            "model": "medium",
+            "days_ago": 6,
+            "duration_seconds": 130.0951875,
+            "processing_seconds": 14,
+            "transcription": {
+                "text": "Buenas tardes a todos. Hoy cerramos la unidad de hidrología con un tema que ya conocen de la escuela, pero que vamos a mirar con un poco más de detalle, el ciclo del agua. Empecemos por un dato que siempre sorprende. Casi el 97% del agua del planeta está en los océanos, y es salada. Del 3% restante, la mayor parte está congelada en los glaciares y en los casquetes polares. O sea que el agua dulce a la que podemos acceder fácilmente, en ríos, lagos y napas, es una fracción muy chica del total. El motor de todo el ciclo es el sol. Su energía calienta la superficie de los océanos y el agua se evapora. A eso se suma la transpiración de las plantas, que liberan vapor por las hojas. Por eso muchas veces hablamos de evapotranspiración, como un solo proceso. Ese vapor sube, se enfría y se condensa en pequeñas gotas alrededor de partículas de polvo, así se forman las nubes. Cuando las gotas crecen lo suficiente, caen como precipitación, ya sea lluvia, nieve o granizo. Una vez en el suelo, el agua puede seguir dos caminos. Una parte escurre por la superficie y alimenta arroyos y ríos, que tarde o temprano vuelven al mar. La otra parte se infiltra en el suelo y recarga los acuíferos, que son las reservas de agua subterránea de las que dependen muchas ciudades. Algo importante para el parcial, el tiempo que el agua pasa en cada lugar es muy distinto. En la atmósfera, una molécula de agua se queda en promedio unos nueve días. En un océano, en cambio, puede quedarse miles de años. Para la próxima clase les pido una tarea práctica. Armen un pluviómetro casero con una botella de plástico cortada y una regla, y registren la lluvia de su barrio durante dos semanas. Después vamos a comparar los resultados entre todos. Nos vemos el jueves.",
+                "metadata": {
+                    "engine": "faster-whisper",
+                    "model": "medium"
+                },
+                "segments": [
+                    [
+                        0,
+                        2.28,
+                        "Buenas tardes a todos."
+                    ],
+                    [
+                        2.28,
+                        6.88,
+                        "Hoy cerramos la unidad de hidrología con un tema que ya conocen de la escuela, pero"
+                    ],
+                    [
+                        6.88,
+                        12.48,
+                        "que vamos a mirar con un poco más de detalle, el ciclo del agua."
+                    ],
+                    [
+                        12.48,
+                        15.48,
+                        "Empecemos por un dato que siempre sorprende."
+                    ],
+                    [
+                        15.48,
+                        21.6,
+                        "Casi el 97% del agua del planeta está en los océanos, y es salada."
+                    ],
+                    [
+                        21.6,
+                        28.4,
+                        "Del 3% restante, la mayor parte está congelada en los glaciares y en los casquetes polares."
+                    ],
+                    [
+                        28.4,
+                        34.72,
+                        "O sea que el agua dulce a la que podemos acceder fácilmente, en ríos, lagos y napas, es una"
+                    ],
+                    [
+                        34.72,
+                        38.02,
+                        "fracción muy chica del total."
+                    ],
+                    [
+                        38.02,
+                        40.92,
+                        "El motor de todo el ciclo es el sol."
+                    ],
+                    [
+                        40.92,
+                        45.64,
+                        "Su energía calienta la superficie de los océanos y el agua se evapora."
+                    ],
+                    [
+                        45.64,
+                        51.44,
+                        "A eso se suma la transpiración de las plantas, que liberan vapor por las hojas."
+                    ],
+                    [
+                        51.44,
+                        57.52,
+                        "Por eso muchas veces hablamos de evapotranspiración, como un solo proceso."
+                    ],
+                    [
+                        57.52,
+                        62.4,
+                        "Ese vapor sube, se enfría y se condensa en pequeñas gotas alrededor de partículas"
+                    ],
+                    [
+                        62.4,
+                        66.04,
+                        "de polvo, así se forman las nubes."
+                    ],
+                    [
+                        66.04,
+                        71.92,
+                        "Cuando las gotas crecen lo suficiente, caen como precipitación, ya sea lluvia, nieve"
+                    ],
+                    [
+                        71.92,
+                        74.28,
+                        "o granizo."
+                    ],
+                    [
+                        74.28,
+                        78.56,
+                        "Una vez en el suelo, el agua puede seguir dos caminos."
+                    ],
+                    [
+                        78.56,
+                        83.88,
+                        "Una parte escurre por la superficie y alimenta arroyos y ríos, que tarde o temprano vuelven"
+                    ],
+                    [
+                        83.88,
+                        85.2,
+                        "al mar."
+                    ],
+                    [
+                        85.24,
+                        90.32,
+                        "La otra parte se infiltra en el suelo y recarga los acuíferos, que son las reservas de agua"
+                    ],
+                    [
+                        90.32,
+                        94.68,
+                        "subterránea de las que dependen muchas ciudades."
+                    ],
+                    [
+                        94.68,
+                        100.56,
+                        "Algo importante para el parcial, el tiempo que el agua pasa en cada lugar es muy distinto."
+                    ],
+                    [
+                        100.56,
+                        105.88,
+                        "En la atmósfera, una molécula de agua se queda en promedio unos nueve días."
+                    ],
+                    [
+                        105.88,
+                        111.56,
+                        "En un océano, en cambio, puede quedarse miles de años."
+                    ],
+                    [
+                        111.56,
+                        115.1,
+                        "Para la próxima clase les pido una tarea práctica."
+                    ],
+                    [
+                        115.1,
+                        120.44,
+                        "Armen un pluviómetro casero con una botella de plástico cortada y una regla, y registren"
+                    ],
+                    [
+                        120.44,
+                        123.6,
+                        "la lluvia de su barrio durante dos semanas."
+                    ],
+                    [
+                        123.6,
+                        127.68,
+                        "Después vamos a comparar los resultados entre todos."
+                    ],
+                    [
+                        127.68,
+                        128.72,
+                        "Nos vemos el jueves."
+                    ]
+                ]
+            },
+            "summary": {
+                "text": "El contenido es una clase educativa que aborda en detalle el ciclo hidrológico o ciclo del agua, un tema fundamental de la escuela y la hidrología. Se explica cómo funciona este proceso natural, desde la evaporación impulsada por el sol hasta las diferentes formas de almacenamiento y movimiento del agua dulce.\n\n## Resumen general\nEl material detalla que gran parte del agua del planeta es salada (97% en océanos) o está congelada. El ciclo se activa con la energía solar, generando evaporación desde los océanos y transpiración vegetal, proceso conocido como evapotranspiración.\n\nLas etapas subsecuentes incluyen la condensación de vapor formando nubes, su caída como precipitación (lluvia, nieve), y finalmente el movimiento en tierra. Una vez en el suelo, el agua puede escurrir superficialmente hacia ríos o infiltrarse para recargar los acuíferos subterráneos.\n\nEste tema está dirigido a estudiantes que se preparan para un parcial de hidrología, enfatizando la importancia del conocimiento sobre las reservas y movimientos hídricos. Además, se asigna una tarea práctica para aplicar el conocimiento en el registro de datos pluviométricos.\n\n## Puntos principales\n\n- El 97% del agua planetaria es salada y se encuentra en los océanos.\n- La mayor parte del agua dulce está congelada en glaciares y casquetes polares.\n- Solo una fracción pequeña del total de agua dulce es fácilmente accesible (ríos, lagos, napas).\n- El motor principal que impulsa el ciclo hidrológico es la energía solar.\n- La evaporación se suma a la transpiración vegetal, creando el proceso llamado evapotranspiración.\n- En la atmósfera, el vapor de agua se enfría y condensa formando nubes alrededor de partículas de polvo.\n- Las gotas acumuladas caen como precipitación, que puede ser lluvia, nieve o granizo.\n- El agua superficial escurre alimentando arroyos y ríos hasta volver al mar.\n- Una parte del agua se infiltra en el suelo para recargar los acuíferos subterráneos.\n- Los tiempos de residencia son muy distintos: una molécula puede pasar nueve días en la atmósfera o miles en un océano.\n- Se asigna como tarea práctica armar y usar un pluviómetro casero durante dos semanas.\n\n## Temas principales\n\n- Distribución del agua planetaria\n- Motor e inicio del ciclo\n- Evapotranspiración (proceso clave)\n- Condensación y precipitación\n- Recarga de acuíferos subterráneos\n- Tiempos de residencia hídrica",
+                "metadata": {
+                    "key_points": [],
+                    "model": "gemma4:e4b",
+                    "tokens_used": 1626,
+                    "provider": "remote",
+                    "elapsed_seconds": 28
+                }
+            },
+            "translations": [
+                {
+                    "language": "en",
+                    "text": "Good afternoon everyone. Today we are closing the hydrology unit with a topic you already know from school, but which we are going to look at in a little more detail: the water cycle. Let's start with a fact that always surprises people. Almost 97% of the planet's water is in the oceans, and it is salty. Of the remaining 3%, most of it is frozen in glaciers and polar ice caps. This means that fresh water that we can easily access, in rivers, lakes, and aquifers, is a very small fraction of the total. The engine of the entire cycle is the sun. Its energy heats the surface of the oceans and the water evaporates. To that is added the transpiration from plants, which release vapor through their leaves. That's why many times we talk about evapotranspiration as a single process. This vapor rises, cools down, and condenses into small droplets around dust particles, thus forming clouds. When the drops grow enough, they fall as precipitation, whether it is rain, snow, or hail. Once on the ground, water can follow two paths. One part runs over the surface and feeds streams and rivers, which sooner or later return to the sea. The other part infiltrates into the soil and recharges aquifers, which are underground water reserves that many cities depend on. Something important for the partial exam: the time the water spends in each place is very different. In the atmosphere, a water molecule stays for an average of about nine days. In an ocean, however, it can stay for thousands of years. For the next class, I ask you for a practical assignment. Build a homemade rain gauge with a cut plastic bottle and a ruler, and record the rainfall in your neighborhood over two weeks. Afterward, we are going to compare the results among all of us. See you on Thursday.",
+                    "metadata": {
+                        "provider": "remote",
+                        "model": "gemma4:e4b",
+                        "tokens_used": 2229,
+                        "elapsed_seconds": 42
+                    }
+                }
+            ]
+        },
+        {
+            "slug": "reunion-lanzamiento",
+            "audio": "audio/reunion-lanzamiento.mp3",
+            "original_name": "Reunión de equipo - lanzamiento 2.0.mp3",
+            "folder": [
+                "Trabajo"
+            ],
+            "language": "es",
+            "model": "medium",
+            "days_ago": 2,
+            "duration_seconds": 91.5701875,
+            "processing_seconds": 10,
+            "transcription": {
+                "text": "Bueno, arrancamos. La idea de hoy es repasar cómo estamos con el lanzamiento de la versión 2.0 de la aplicación, que sale el jueves que viene. Sofía, ¿cómo viene el diseño? Bien. Las pantallas nuevas del registro ya están aprobadas. Lo único que falta es ajustar los colores del modo oscuro, porque en algunos teléfonos el contraste queda muy bajo. Me calculo que el lunes lo tengo terminado. Perfecto. Carla, ¿qué está viendo soporte con la versión de prueba? La mayoría de los comentarios son buenos. El problema que más se repite es que algunas personas no reciben el correo de confirmación. Revisamos y casi siempre termina en la carpeta de correo no deseado. Propongo agregar un aviso en la pantalla que diga que revisen esa carpeta. Me parece bien, es un cambio chico. Lo sumamos antes del lanzamiento. ¿Algo más? Sí, una cosa. Para la comunicación necesitamos las capturas finales. Si las sacamos el martes, llegamos a armar las publicaciones para las redes. Entonces quedamos así, Sofía cierra el modo oscuro el lunes, Carla redacta el aviso del correo no deseado, y el martes sacamos las capturas. Si aparece algún error grave en las pruebas, movemos el lanzamiento una semana. Gracias a todos.",
+                "metadata": {
+                    "engine": "faster-whisper",
+                    "model": "medium"
+                },
+                "segments": [
+                    [
+                        0,
+                        2.56,
+                        "Bueno, arrancamos."
+                    ],
+                    [
+                        2.56,
+                        8.3,
+                        "La idea de hoy es repasar cómo estamos con el lanzamiento de la versión 2.0 de la aplicación,"
+                    ],
+                    [
+                        8.3,
+                        10.36,
+                        "que sale el jueves que viene."
+                    ],
+                    [
+                        10.36,
+                        13.84,
+                        "Sofía, ¿cómo viene el diseño?"
+                    ],
+                    [
+                        13.84,
+                        15.32,
+                        "Bien."
+                    ],
+                    [
+                        15.32,
+                        19,
+                        "Las pantallas nuevas del registro ya están aprobadas."
+                    ],
+                    [
+                        19,
+                        24.04,
+                        "Lo único que falta es ajustar los colores del modo oscuro, porque en algunos teléfonos"
+                    ],
+                    [
+                        24.04,
+                        26.6,
+                        "el contraste queda muy bajo."
+                    ],
+                    [
+                        26.6,
+                        28.76,
+                        "Me calculo que el lunes lo tengo terminado."
+                    ],
+                    [
+                        28.76,
+                        30.76,
+                        "Perfecto."
+                    ],
+                    [
+                        30.76,
+                        36.56,
+                        "Carla, ¿qué está viendo soporte con la versión de prueba?"
+                    ],
+                    [
+                        36.56,
+                        39.36,
+                        "La mayoría de los comentarios son buenos."
+                    ],
+                    [
+                        39.36,
+                        44.48,
+                        "El problema que más se repite es que algunas personas no reciben el correo de confirmación."
+                    ],
+                    [
+                        44.48,
+                        48.88,
+                        "Revisamos y casi siempre termina en la carpeta de correo no deseado."
+                    ],
+                    [
+                        48.88,
+                        54.04,
+                        "Propongo agregar un aviso en la pantalla que diga que revisen esa carpeta."
+                    ],
+                    [
+                        54.04,
+                        56.32,
+                        "Me parece bien, es un cambio chico."
+                    ],
+                    [
+                        57.2,
+                        59.76,
+                        "Lo sumamos antes del lanzamiento."
+                    ],
+                    [
+                        59.76,
+                        61.36,
+                        "¿Algo más?"
+                    ],
+                    [
+                        61.36,
+                        64.24,
+                        "Sí, una cosa."
+                    ],
+                    [
+                        64.24,
+                        68.24,
+                        "Para la comunicación necesitamos las capturas finales."
+                    ],
+                    [
+                        68.24,
+                        74.76,
+                        "Si las sacamos el martes, llegamos a armar las publicaciones para las redes."
+                    ],
+                    [
+                        74.76,
+                        79.64,
+                        "Entonces quedamos así, Sofía cierra el modo oscuro el lunes, Carla redacta el aviso del"
+                    ],
+                    [
+                        79.64,
+                        83.96,
+                        "correo no deseado, y el martes sacamos las capturas."
+                    ],
+                    [
+                        83.96,
+                        89.24,
+                        "Si aparece algún error grave en las pruebas, movemos el lanzamiento una semana."
+                    ],
+                    [
+                        89.24,
+                        90.24,
+                        "Gracias a todos."
+                    ]
+                ]
+            },
+            "summary": {
+                "text": "El contenido es un repaso de estado o reunión de coordinación enfocado en la preparación del lanzamiento de la versión 2.0 de una aplicación programada para el jueves siguiente. Se revisan los avances departamentales, desde el diseño hasta las pruebas de soporte y la estrategia de comunicación.\n\n## Resumen general\nLa discusión se centra en asegurar que todos los componentes estén listos para un lanzamiento exitoso. Sofía está ajustando detalles visuales como el modo oscuro del registro, mientras que Carla identifica problemas recurrentes durante las pruebas beta relacionadas con la recepción de correos de confirmación.\n\nEl equipo ha definido acciones concretas y plazos: se implementará una advertencia sobre la carpeta de spam en la pantalla de usuario. Además, para garantizar la comunicación adecuada, se programó la obtención de capturas finales el martes siguiente, lo cual permite avanzar con las publicaciones de redes sociales. El lanzamiento está condicionado a que no aparezcan errores graves durante las pruebas.\n\n## Puntos principales\n\n- El objetivo principal es revisar los preparativos para el lanzamiento de la versión 2.0 del jueves próximo.\n- Las pantallas nuevas del registro ya cuenten con diseño aprobado, solo falta ajustar detalles visuales.\n- Se identificó que el contraste en modo oscuro requiere ajustes específicos en ciertos modelos de teléfonos.\n- El problema más reportado durante las pruebas es la no recepción del correo de confirmación por parte de los usuarios.\n- La causa frecuente del fallo es que el email termina en la carpeta de correo no deseado (spam).\n- Se propuso agregar un aviso visible en pantalla para recordar a los usuarios revisar su carpeta de spam.\n- Para las redes sociales, se requiere obtener las capturas finales de la aplicación el día martes.\n- El plan acordado es que Sofía finalice el modo oscuro el lunes siguiente al encuentro.\n- Carla redactará el aviso sobre la revisión del correo no deseado para su implementación en pantalla.\n- Existe un protocolo: si aparecen errores graves, se pospondrá el lanzamiento por una semana.\n\n## Temas principales\n\n- Preparativos de lanzamiento 2.0\n- Diseño y ajustes visuales (Modo Oscuro)\n- Problemas en la confirmación de correos\n- Comunicación para redes sociales\n- Gestión de errores graves",
+                "metadata": {
+                    "key_points": [],
+                    "model": "gemma4:e4b",
+                    "tokens_used": 1384,
+                    "provider": "remote",
+                    "elapsed_seconds": 24
+                }
+            },
+            "translations": [
+                {
+                    "language": "en",
+                    "text": "Okay, let's start. The idea for today is to review where we stand with the launch of version 2.0 of the application, which comes out next Thursday. Sofía, how is the design coming along? Good. The new registration screens are already approved. The only thing missing is adjusting the colors for dark mode, because on some phones the contrast is too low. I estimate that I will have it finished by Monday. Perfect. Carla, what is support seeing with the test version? Most of the comments are good. The problem that repeats the most is that some people do not receive the confirmation email. We checked and it almost always ends up in the spam folder. I propose adding a notice on the screen telling them to check that folder. That sounds good to me, it's a small change. We'll add it before the launch. Anything else? Yes, one thing. For communication, we need the final screenshots. If we get them on Tuesday, we will have time to prepare the posts for social media. So we are set: Sofía finishes dark mode on Monday, Carla drafts the spam email notice, and on Tuesday we take the screenshots. If any serious error appears in testing, we move the launch back one week. Thank you everyone.",
+                    "metadata": {
+                        "provider": "remote",
+                        "model": "gemma4:e4b",
+                        "tokens_used": 1802,
+                        "elapsed_seconds": 37
+                    }
+                },
+                {
+                    "language": "pt",
+                    "text": "Bom, vamos começar. A ideia de hoje é repassar como estamos com o lançamento da versão 2.0 do aplicativo, que sai na quinta-feira que vem. Sofia, como está o design? Bem. As novas telas de registro já estão aprovadas. O único que falta é ajustar as cores do modo escuro, porque em alguns telefones o contraste fica muito baixo. Eu calculo que na segunda-feira eu tenho isso terminado. Perfeito. Carla, o que o suporte está vendo com a versão de teste? A maioria dos comentários são bons. O problema que mais se repete é que algumas pessoas não recebem o e-mail de confirmação. Revisamos e quase sempre acaba na pasta de spam. Proponho adicionar um aviso na tela dizendo para revisarem essa pasta. Parece-me bem, é uma mudança pequena. Nós adicionamos antes do lançamento. Mais alguma coisa? Sim, uma coisa. Para a comunicação precisamos das capturas finais. Se tirarmos na terça-feira, conseguimos montar as publicações para as redes sociais. Então ficamos assim: Sofia finaliza o modo escuro na segunda, Carla redige o aviso do e-mail de spam, e na terça tiramos as capturas. Se aparecer algum erro grave nos testes, adiamos o lançamento uma semana. Obrigado a todos.",
+                    "metadata": {
+                        "provider": "remote",
+                        "model": "gemma4:e4b",
+                        "tokens_used": 2030,
+                        "elapsed_seconds": 25
+                    }
+                }
+            ]
+        },
+        {
+            "slug": "podcast-remote-work",
+            "audio": "audio/podcast-remote-work.mp3",
+            "original_name": "Small Steps - episode 12.mp3",
+            "folder": [
+                "Podcasts"
+            ],
+            "language": "en",
+            "model": "small",
+            "days_ago": 9,
+            "duration_seconds": 75.51,
+            "processing_seconds": 5,
+            "transcription": {
+                "text": "Welcome to Small Steps, a short podcast about working better from home. I'm your host, and today I want to share three habits that help me stay focused when there is no office around me. The first habit is a start-up ritual. Before I open my email, I spend five minutes writing down the one thing that would make the day a success. It sounds simple, but it changes how I make decisions for the next eight hours. The second habit is batching messages. Instead of answering every notification the moment it arrives, I check messages three times a day, in the morning, after lunch, and before I finish. Most things can wait an hour or two, and the deep work cannot wait at all. The third habit is a shutdown ritual. At the end of the day I review my list, move unfinished tasks to tomorrow, and close every tab. Then I say out loud that the work day is over. It feels a little silly, but it really helps my brain stop thinking about work at dinner. That's it for today. Try one of these habits this week, just one, and tell me how it goes. See you in the next episode.",
+                "metadata": {
+                    "engine": "faster-whisper",
+                    "model": "small"
+                },
+                "segments": [
+                    [
+                        0,
+                        5.28,
+                        "Welcome to Small Steps, a short podcast about working better from home."
+                    ],
+                    [
+                        5.28,
+                        9.72,
+                        "I'm your host, and today I want to share three habits that help me stay focused"
+                    ],
+                    [
+                        9.72,
+                        12.92,
+                        "when there is no office around me."
+                    ],
+                    [
+                        12.92,
+                        15.8,
+                        "The first habit is a start-up ritual."
+                    ],
+                    [
+                        15.8,
+                        20.16,
+                        "Before I open my email, I spend five minutes writing down the one thing that"
+                    ],
+                    [
+                        20.16,
+                        22.4,
+                        "would make the day a success."
+                    ],
+                    [
+                        22.4,
+                        28.32,
+                        "It sounds simple, but it changes how I make decisions for the next eight hours."
+                    ],
+                    [
+                        28.32,
+                        31.2,
+                        "The second habit is batching messages."
+                    ],
+                    [
+                        31.2,
+                        35.76,
+                        "Instead of answering every notification the moment it arrives, I check messages"
+                    ],
+                    [
+                        35.76,
+                        40.72,
+                        "three times a day, in the morning, after lunch, and before I finish."
+                    ],
+                    [
+                        40.72,
+                        46.24,
+                        "Most things can wait an hour or two, and the deep work cannot wait at all."
+                    ],
+                    [
+                        46.24,
+                        48.96,
+                        "The third habit is a shutdown ritual."
+                    ],
+                    [
+                        48.96,
+                        53.96,
+                        "At the end of the day I review my list, move unfinished tasks to tomorrow, and"
+                    ],
+                    [
+                        53.96,
+                        55.8,
+                        "close every tab."
+                    ],
+                    [
+                        55.8,
+                        59,
+                        "Then I say out loud that the work day is over."
+                    ],
+                    [
+                        59,
+                        63.4,
+                        "It feels a little silly, but it really helps my brain stop thinking about work"
+                    ],
+                    [
+                        63.4,
+                        65.28,
+                        "at dinner."
+                    ],
+                    [
+                        65.28,
+                        67.16,
+                        "That's it for today."
+                    ],
+                    [
+                        67.16,
+                        72.52,
+                        "Try one of these habits this week, just one, and tell me how it goes."
+                    ],
+                    [
+                        72.52,
+                        74.08,
+                        "See you in the next episode."
+                    ]
+                ]
+            },
+            "summary": {
+                "text": "Este podcast titulado 'Small Steps' aborda el tema de mejorar la productividad y concentración al trabajar desde casa (remoto). El anfitrión comparte tres hábitos personales que ha implementado para mantener el enfoque cuando no está en un entorno de oficina tradicional.\n\n## Resumen general\nEl contenido se enfoca en ofrecer estrategias prácticas y sencillas, presentadas como rutinas o 'hábitos', diseñadas para estructurar la jornada laboral remota. Estos métodos buscan minimizar las distracciones digitales y mentales que son comunes al trabajar sin los límites físicos del espacio de oficina.\nLa información está dirigida a profesionales que trabajan desde casa o en modalidades híbridas, buscando herramientas concretas para mejorar su gestión del tiempo, reducir el agotamiento digital y establecer fronteras claras entre la vida laboral y personal.\n\n## Puntos principales\n\n- El podcast presenta tres hábitos clave para mantener la concentración trabajando sin una oficina física.\n- El primer hábito es un ritual de inicio: dedicar cinco minutos a definir lo que hará exitoso el día, antes de revisar correos electrónicos.\n- Este simple ejercicio cambia significativamente cómo se toman las decisiones durante toda la jornada laboral de ocho horas.\n- La segunda técnica recomendada es 'batching messages' (agrupar mensajes): verificar notificaciones solo tres veces al día.\n- Se aconseja que no todas las comunicaciones urgentes requieren atención inmediata, ya que el trabajo profundo sí lo necesita.\n- El tercer hábito es un ritual de cierre: revisar tareas pendientes, moverlas a otro día y cerrar todas las pestañas del navegador.\n- Al verbalizar que la jornada laboral ha terminado, se ayuda al cerebro a desconectarse mentalmente del trabajo durante la cena.\n\n## Temas principales\n\n- Productividad en casa\n- Hábitos de enfoque remoto\n- Rituales laborales (inicio/cierre)\n- Gestión de notificaciones digitales\n- Establecer límites trabajo-hogar",
+                "metadata": {
+                    "key_points": [],
+                    "model": "gemma4:e4b",
+                    "tokens_used": 1262,
+                    "provider": "remote",
+                    "elapsed_seconds": 19
+                }
+            },
+            "translations": [
+                {
+                    "language": "es",
+                    "text": "Bienvenidos a Small Steps, un pódcast corto sobre cómo trabajar mejor desde casa. Soy su anfitrión/a y hoy quiero compartir tres hábitos que me ayudan a mantenerme concentrado cuando no hay oficina cerca. El primer hábito es un ritual de inicio. Antes de abrir mi correo electrónico, me paso cinco minutos escribiendo la única cosa que haría que el día fuera un éxito. Suena sencillo, pero cambia cómo tomo decisiones durante las siguientes ocho horas. El segundo hábito es agrupar los mensajes. En lugar de responder cada notificación en el momento en que llega, reviso los mensajes tres veces al día: por la mañana, después del almuerzo y antes de terminar. La mayoría de las cosas pueden esperar una o dos horas, y el trabajo profundo no puede esperar en absoluto. El tercer hábito es un ritual de cierre. Al final del día reviso mi lista, muevo las tareas sin terminar a mañana y cierro todas las pestañas. Luego digo en voz alta que la jornada laboral ha terminado. Se siente un poco tonto, pero realmente ayuda a mi cerebro a dejar de pensar en el trabajo durante la cena. Eso es todo por hoy. Intenta uno de estos hábitos esta semana, solo uno, y cuéntame cómo te va. Nos vemos en el próximo episodio.",
+                    "metadata": {
+                        "provider": "remote",
+                        "model": "gemma4:e4b",
+                        "tokens_used": 1781,
+                        "elapsed_seconds": 37
+                    }
+                },
+                {
+                    "language": "pt",
+                    "text": "Bem-vindos ao Small Steps, um podcast curto sobre como trabalhar melhor em casa. Eu sou o seu apresentador e hoje quero compartilhar três hábitos que me ajudam a manter o foco quando não há escritório por perto. O primeiro hábito é um ritual de início. Antes de abrir meu e-mail, eu passo cinco minutos escrevendo a única coisa que faria o dia ser um sucesso. Parece simples, mas muda como eu tomo decisões pelas próximas oito horas. O segundo hábito é agrupar mensagens. Em vez de responder a cada notificação no momento em que ela chega, eu verifico as mensagens três vezes por dia: pela manhã, depois do almoço e antes de terminar. A maioria das coisas pode esperar uma ou duas horas, e o trabalho profundo não pode esperar de jeito nenhum. O terceiro hábito é um ritual de encerramento. No final do dia, eu reviso minha lista, movo tarefas inacabadas para amanhã e fecho todas as abas. Depois eu digo em voz alta que o dia de trabalho acabou. Parece um pouco bobo, mas realmente ajuda meu cérebro a parar de pensar no trabalho durante o jantar. É isso por hoje. Tente um desses hábitos esta semana, apenas um, e me diga como foi. Até o próximo episódio.",
+                    "metadata": {
+                        "provider": "remote",
+                        "model": "gemma4:e4b",
+                        "tokens_used": 1938,
+                        "elapsed_seconds": 24
+                    }
+                }
+            ]
+        },
+        {
+            "slug": "nota-viaje-mendoza",
+            "audio": "audio/nota-viaje-mendoza.mp3",
+            "original_name": "Nota de voz - viaje a Mendoza.mp3",
+            "folder": null,
+            "language": "es",
+            "model": "medium",
+            "days_ago": 1,
+            "duration_seconds": 40.46,
+            "processing_seconds": 16,
+            "transcription": {
+                "text": "Nota para el viaje a Mendoza. Primero, reservar el auto en el aeropuerto, que en temporada alta se agotan rápido. Segundo, confirmar la cabaña en potrerillos para las noches del viernes y el sábado. Para la valija, campera abrigada, porque de noche refresca mucho aunque de día haga calor, protector solar y zapatillas para caminar. El domingo queremos hacer la excursión a la Concagua, así que hay que salir temprano y llevar agua. Y no olvidarme de preguntar en la oficina de turismo por las bodegas que se pueden visitar sin reserva. Nada más, después lo paso en limpio.",
+                "metadata": {
+                    "engine": "faster-whisper",
+                    "model": "medium"
+                },
+                "segments": [
+                    [
+                        0,
+                        2.52,
+                        "Nota para el viaje a Mendoza."
+                    ],
+                    [
+                        2.52,
+                        8.52,
+                        "Primero, reservar el auto en el aeropuerto, que en temporada alta se agotan rápido."
+                    ],
+                    [
+                        8.52,
+                        15.04,
+                        "Segundo, confirmar la cabaña en potrerillos para las noches del viernes y el sábado."
+                    ],
+                    [
+                        15.04,
+                        20.76,
+                        "Para la valija, campera abrigada, porque de noche refresca mucho aunque de día haga calor,"
+                    ],
+                    [
+                        20.76,
+                        23.76,
+                        "protector solar y zapatillas para caminar."
+                    ],
+                    [
+                        23.76,
+                        28.4,
+                        "El domingo queremos hacer la excursión a la Concagua, así que hay que salir temprano"
+                    ],
+                    [
+                        28.4,
+                        30.6,
+                        "y llevar agua."
+                    ],
+                    [
+                        30.6,
+                        35.12,
+                        "Y no olvidarme de preguntar en la oficina de turismo por las bodegas que se pueden visitar"
+                    ],
+                    [
+                        35.12,
+                        36.72,
+                        "sin reserva."
+                    ],
+                    [
+                        36.72,
+                        39.12,
+                        "Nada más, después lo paso en limpio."
+                    ]
+                ]
+            },
+            "summary": {
+                "text": "Este contenido es una nota de organización personal o un recordatorio para planificar un viaje a Mendoza. El texto detalla los pasos logísticos y recomendaciones necesarias para asegurar que la estadía sea placentera y sin contratiempos.\n\n## Resumen general\nEl objetivo principal del mensaje es organizar las reservas esenciales (auto, alojamiento) y preparar una lista de elementos prácticos necesarios para el viaje. Se hace hincapié en la necesidad de actuar con antelación debido a la alta demanda turística de la zona.\n\nLa información está dirigida a un compañero o persona que recibirá los detalles finales del itinerario, sirviendo como checklist preliminar antes de consolidar todos los datos.\n\n## Puntos principales\n\n- Es crucial reservar el auto en el aeropuerto con anticipación debido a la alta demanda turística.\n- Se debe confirmar la reserva de cabaña específicamente para las noches del viernes y sábado.\n- Para empacar, es necesario llevar campera abrigada por los cambios bruscos de temperatura nocturna.\n- Además de ropa cálida, se deben incluir protector solar y zapatillas cómodas para caminar.\n- El plan incluye una excursión a la Concagua el domingo, lo que requiere salir temprano.\n- Es fundamental llevar agua suficiente durante las actividades al aire libre como la visita a Concagua.\n- Se debe consultar en la oficina de turismo sobre bodegas accesibles sin necesidad de reserva previa.\n\n## Temas principales\n\n- Logística del viaje\n- Reservas y confirmaciones\n- Equipaje recomendado\n- Excursión a Concagua\n- Información turística local",
+                "metadata": {
+                    "key_points": [],
+                    "model": "gemma4:e4b",
+                    "tokens_used": 1098,
+                    "provider": "remote",
+                    "elapsed_seconds": 21
+                }
+            },
+            "translations": []
+        }
+    ]
+}
