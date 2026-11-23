@@ -9,6 +9,8 @@ export default {
         './storage/framework/views/*.php',
         './resources/views/**/*.blade.php',
         './resources/js/**/*.vue',
+        // Clases armadas en composables (p. ej. los tamaños de letra de useTextSize).
+        './resources/js/**/*.js',
     ],
 
     theme: {

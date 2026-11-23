@@ -2,6 +2,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DownloadFormatModal from '@/Components/DownloadFormatModal.vue';
 import Modal from '@/Components/Modal.vue';
+import TextSizePicker from '@/Components/TextSizePicker.vue';
+import { useTextSize } from '@/composables/useTextSize';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { marked } from 'marked';
@@ -18,6 +20,11 @@ const { rejectionReason } = useUploadLimits();
 const transcriptionOpen = ref(true);
 const transcriptionDataOpen = ref(false);
 const summaryOpen = ref(true);
+
+// Tamaño de letra de cada ficha (las «T» del encabezado). Los valores por
+// defecto son los que tenían antes: la transcripción chica, la traducción mediana.
+const { size: transcriptionTextSize, classes: transcriptionTextClasses } = useTextSize('transcription', 'sm');
+const { size: translationTextSize, classes: translationTextClasses } = useTextSize('translation', 'md');
 
 // Scroll-to-top: aparece cuando el usuario se acerca al final de la página.
 const showScrollTop = ref(false);
@@ -155,7 +162,73 @@ const props = defineProps({
         type: Array,
         default: () => ['small', 'medium', 'large-v3'],
     },
+    translationLanguages: {
+        type: Object,
+        default: () => ({ es: 'Español', en: 'Inglés', pt: 'Portugués' }),
+    },
 });
+
+// --- Traducción ---------------------------------------------------------
+// Una por idioma (se guardan todas). El selector muestra la del idioma elegido.
+const translationOpen = ref(true);
+const translations = computed(() => props.file.transcription?.translations || {});
+const sourceLanguage = computed(() => props.file.language || null);
+const translationLang = ref((() => {
+    const existing = Object.values(props.file.transcription?.translations || {})
+        .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+    if (existing.length) return existing[0].language;
+    return Object.keys(props.translationLanguages).find((code) => code !== props.file.language) || 'en';
+})());
+const currentTranslation = computed(() => translations.value[translationLang.value] || null);
+const translationStatus = computed(() => currentTranslation.value?.status ?? 'idle');
+const translationRunning = computed(() => ['queued', 'processing'].includes(translationStatus.value));
+const anyTranslationRunning = computed(() => Object.values(translations.value)
+    .some((t) => ['queued', 'processing'].includes(t.status)));
+const translationSameAsSource = computed(() => sourceLanguage.value === translationLang.value);
+const translationParagraphs = computed(() => (currentTranslation.value?.text || '')
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean));
+const translationProgressLabel = computed(() => {
+    const p = currentTranslation.value?.progress;
+    return p && p.total > 1 ? `${p.chunk} de ${p.total}` : null;
+});
+const translationElapsedLabel = computed(() => {
+    const s = currentTranslation.value?.elapsed_seconds;
+    if (! s || s < 0) return null;
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+});
+
+const generateTranslation = () => {
+    router.post(route('transcriptions.translation', props.file.id), { language: translationLang.value }, {
+        preserveScroll: true,
+        onError: (errors) => toast.error(errors.translation || errors.language || 'No se pudo iniciar la traducción.'),
+    });
+};
+
+const cancelTranslation = async () => {
+    const ok = await openConfirm({
+        title: 'Cancelar traducción',
+        message: 'Se corta después del trozo que se está traduciendo. Lo ya traducido queda guardado. ¿Continuar?',
+        confirmText: 'Cancelar traducción',
+        cancelText: 'Volver',
+        danger: true,
+    });
+    if (! ok) return;
+    router.delete(route('transcriptions.translation.cancel', [props.file.id, translationLang.value]), {
+        preserveScroll: true,
+        onError: () => toast.error('No se pudo cancelar.'),
+    });
+};
+
+const copyTranslation = async () => {
+    try {
+        await navigator.clipboard.writeText(currentTranslation.value?.text || '');
+        toast.success('Traducción copiada.');
+    } catch {
+        toast.error('No se pudo copiar.');
+    }
+};
 
 const summaryStatus = computed(() => props.file.transcription?.summary_status ?? 'idle');
 const hasSummary = computed(() => !! props.file.transcription?.summary);
@@ -250,7 +323,8 @@ const retranscribe = (model) => {
 const needsPoll = computed(() =>
     isReprocessing.value
     || summaryStatus.value === 'queued'
-    || summaryStatus.value === 'processing',
+    || summaryStatus.value === 'processing'
+    || anyTranslationRunning.value,
 );
 watch(needsPoll, (active) => {
     if (active) {
@@ -965,14 +1039,175 @@ const statusLabel = (status) => ({
                     </div>
                 </section>
 
+                <section
+                    v-if="props.file.transcription?.text"
+                    class="rounded-md border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                >
+                    <div
+                        class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700"
+                        :class="{ '!border-transparent': !translationOpen }"
+                    >
+                        <button
+                            type="button"
+                            class="flex min-w-0 flex-1 items-center gap-3 text-left"
+                            :aria-expanded="translationOpen"
+                            aria-controls="translation-body"
+                            @click="translationOpen = !translationOpen"
+                        >
+                            <div class="min-w-0 flex-1">
+                                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">
+                                    Traducción
+                                </h3>
+                                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                    <template v-if="summaryProvider === 'remote'">⚡ Ollama en worker remoto (tu PC) vía túnel</template>
+                                    <template v-else>🏠 Ollama local</template>
+                                    · <code class="rounded bg-gray-100 px-1 py-0.5 dark:bg-gray-700">{{ currentTranslation?.model || ollamaConfig.translate_model || ollamaConfig.model }}</code>
+                                    <span
+                                        v-if="translationStatus === 'completed' && translationElapsedLabel"
+                                        class="ml-1 text-[10px] text-gray-400 dark:text-gray-500"
+                                    >
+                                        · Generada en {{ translationElapsedLabel }}
+                                    </span>
+                                </p>
+                            </div>
+                            <svg
+                                class="h-5 w-5 shrink-0 text-gray-500 transition-transform duration-200 dark:text-gray-400"
+                                :class="{ 'rotate-180': translationOpen }"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </button>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <TextSizePicker
+                                v-if="translationParagraphs.length"
+                                v-model="translationTextSize"
+                            />
+                            <label class="sr-only" for="translation-language">Idioma de la traducción</label>
+                            <select
+                                id="translation-language"
+                                v-model="translationLang"
+                                class="rounded-md border-gray-300 py-1.5 pl-3 pr-8 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                            >
+                                <option
+                                    v-for="(label, code) in translationLanguages"
+                                    :key="code"
+                                    :value="code"
+                                >
+                                    {{ label }}{{ translations[code]?.status === 'completed' ? ' ✓' : '' }}
+                                </option>
+                            </select>
+                            <button
+                                type="button"
+                                class="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                :disabled="translationRunning || translationSameAsSource"
+                                :title="translationSameAsSource ? 'El audio ya está en este idioma' : ''"
+                                @click="generateTranslation"
+                            >
+                                <svg
+                                    v-if="translationRunning"
+                                    class="h-4 w-4 animate-spin"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                                </svg>
+                                <span v-if="translationStatus === 'queued'">En cola...</span>
+                                <span v-else-if="translationStatus === 'processing'">
+                                    Traduciendo{{ translationProgressLabel ? ` ${translationProgressLabel}` : '...' }}
+                                </span>
+                                <span v-else-if="currentTranslation?.text">Retraducir</span>
+                                <span v-else>Traducir</span>
+                            </button>
+                            <button
+                                v-if="translationRunning"
+                                type="button"
+                                class="inline-flex items-center gap-1.5 rounded-md border border-rose-300 bg-white px-3 py-1.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 dark:border-rose-700 dark:bg-gray-800 dark:text-rose-300 dark:hover:bg-rose-900/30"
+                                title="Cancelar la traducción en curso"
+                                @click="cancelTranslation"
+                            >
+                                ✕ Cancelar
+                            </button>
+                        </div>
+                    </div>
+                    <div v-show="translationOpen" id="translation-body" class="space-y-4 p-5">
+                        <p
+                            v-if="translationSameAsSource && ! currentTranslation?.text"
+                            class="text-sm text-gray-500 dark:text-gray-400"
+                        >
+                            El audio ya está en {{ translationLanguages[translationLang]?.toLowerCase() }}. Elegí otro idioma para traducir la transcripción.
+                        </p>
+                        <p
+                            v-else-if="translationStatus === 'idle'"
+                            class="text-sm text-gray-500 dark:text-gray-400"
+                        >
+                            Elegí el idioma y tocá "Traducir". Se traduce la transcripción (con tus ediciones, si las hay) de a partes, y vas viendo el avance acá.
+                        </p>
+                        <p
+                            v-if="translationStatus === 'failed'"
+                            class="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-900/30 dark:text-rose-200"
+                        >
+                            {{ currentTranslation?.error || 'No se pudo traducir.' }}
+                            <template v-if="currentTranslation?.text"> Abajo queda lo que llegó a traducirse.</template>
+                        </p>
+                        <p
+                            v-if="translationStatus === 'queued'"
+                            class="text-sm text-gray-500 dark:text-gray-400"
+                        >
+                            <template v-if="currentTranslation?.progress?.chunk > 0">
+                                Pausa corta: sigue en un minuto desde la parte {{ currentTranslation.progress.chunk + 1 }} de {{ currentTranslation.progress.total }}.
+                            </template>
+                            <template v-else>En cola. Arranca en cuanto se libere el procesamiento.</template>
+                        </p>
+                        <div v-if="translationParagraphs.length">
+                            <div class="mb-2 flex items-center justify-between gap-3">
+                                <p
+                                    v-if="translationStatus === 'processing'"
+                                    class="text-xs font-medium text-blue-700 dark:text-blue-300"
+                                >
+                                    Traduciendo{{ translationProgressLabel ? ` (parte ${translationProgressLabel})` : '' }}: lo que sigue se va agregando solo.
+                                </p>
+                                <span v-else />
+                                <button
+                                    v-if="translationStatus !== 'processing'"
+                                    type="button"
+                                    class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                    @click="copyTranslation"
+                                >
+                                    Copiar
+                                </button>
+                            </div>
+                            <div
+                                class="space-y-4 text-gray-800 dark:text-gray-100"
+                                :class="translationTextClasses"
+                                :lang="translationLang"
+                            >
+                                <p
+                                    v-for="(paragraph, i) in translationParagraphs"
+                                    :key="i"
+                                    class="break-words"
+                                >
+                                    {{ paragraph }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <section class="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <div
-                        class="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700"
+                        class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700"
                         :class="{ '!border-transparent': !transcriptionOpen }"
                     >
                         <button
                             type="button"
-                            class="flex flex-1 items-center gap-3 text-left"
+                            class="flex min-w-0 flex-1 items-center gap-3 text-left"
                             :aria-expanded="transcriptionOpen"
                             aria-controls="transcription-body"
                             @click="transcriptionOpen = !transcriptionOpen"
@@ -1005,7 +1240,8 @@ const statusLabel = (status) => ({
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                             </svg>
                         </button>
-                        <div v-if="file.transcription?.text && ! editingText" class="flex shrink-0 gap-1.5">
+                        <div v-if="file.transcription?.text && ! editingText" class="flex flex-wrap items-center gap-1.5">
+                            <TextSizePicker v-model="transcriptionTextSize" />
                             <button
                                 type="button"
                                 class="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
@@ -1118,7 +1354,8 @@ const statusLabel = (status) => ({
                             </p>
                             <div
                                 v-if="segments.length"
-                                class="space-y-4 text-sm leading-7 text-gray-800 dark:text-gray-100"
+                                class="space-y-4 text-gray-800 dark:text-gray-100"
+                                :class="transcriptionTextClasses"
                             >
                                 <p
                                     v-for="(para, pIdx) in paragraphs"
@@ -1134,13 +1371,15 @@ const statusLabel = (status) => ({
                                             :title="formatTime(entry.segment.start_seconds)"
                                             @click="seekTo(entry.segment.start_seconds)"
                                         >{{ entry.segment.text }}</span>
-                                        <span> </span>
+                                        <!-- Con un espacio literal, Vue lo compila como span vacío y los segmentos quedan pegados. -->
+                                        <span>{{ ' ' }}</span>
                                     </span>
                                 </p>
                             </div>
                             <div
                                 v-else
-                                class="whitespace-pre-wrap text-sm leading-7 text-gray-800 dark:text-gray-100"
+                                class="whitespace-pre-wrap text-gray-800 dark:text-gray-100"
+                                :class="transcriptionTextClasses"
                             >
                                 {{ file.transcription.text }}
                             </div>
