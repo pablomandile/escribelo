@@ -428,18 +428,10 @@ onBeforeUnmount(() => {
     }
 });
 
-const submit = () => {
-    form.post(route('transcriptions.fromPaths'), {
-        preserveScroll: true,
-        onSuccess: () => {
-            form.reset('paths');
-            selectedFiles.value = [];
-        },
-    });
-};
-
 // Subida HTTP real (funciona en el server): el archivo viaja del navegador al
-// storage del server vía store(); reutiliza los ajustes del form principal.
+// storage del server vía store(). Elegir archivos NO los manda: quedan en
+// pendingUploads hasta que se toca Enviar, así hay tiempo de elegir carpeta,
+// modelo e idioma (antes se encolaban al instante con lo que estuviera puesto).
 const uploadForm = useForm({
     files: [],
     transcription_folder_id: '',
@@ -447,23 +439,50 @@ const uploadForm = useForm({
     language: initialLanguage,
     clean_audio: false,
 });
+const pendingUploads = ref([]);
 const uploadInput = ref(null);
 const triggerUpload = () => uploadInput.value?.click();
-const onFilesSelected = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (! files.length) return;
+const uploadKey = (f) => `${f.name}|${f.size}|${f.lastModified}`;
 
-    // Chequeo previo contra los límites reales del server. Sin esto la subida
-    // arranca igual, tarda lo que tarde, y recién al final PHP corta con 413:
-    // el usuario espera de gusto y no recibe ningún mensaje entendible.
-    const reason = rejectionReason(files);
+const onFilesSelected = (e) => {
+    const picked = Array.from(e.target.files || []);
+    // Limpiar el input para poder volver a elegir el mismo archivo después de quitarlo.
+    if (uploadInput.value) uploadInput.value.value = '';
+    if (! picked.length) return;
+
+    const known = new Set(pendingUploads.value.map(uploadKey));
+    const combined = [...pendingUploads.value, ...picked.filter((f) => ! known.has(uploadKey(f)))];
+
+    // Chequeo previo contra los límites reales del server, sobre la tanda
+    // completa. Sin esto la subida arranca igual, tarda lo que tarde, y recién
+    // al final PHP corta con 413 sin un mensaje entendible.
+    const reason = rejectionReason(combined);
     if (reason) {
         toast.error(reason, { duration: 8000 });
-        if (uploadInput.value) uploadInput.value.value = '';
         return;
     }
 
-    uploadForm.files = files;
+    pendingUploads.value = combined;
+};
+
+const removePendingUpload = (file) => {
+    const key = uploadKey(file);
+    pendingUploads.value = pendingUploads.value.filter((f) => uploadKey(f) !== key);
+};
+
+const submitPaths = (onDone) => {
+    form.post(route('transcriptions.fromPaths'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            form.reset('paths');
+            selectedFiles.value = [];
+            onDone?.();
+        },
+    });
+};
+
+const submitUploads = (onDone) => {
+    uploadForm.files = pendingUploads.value;
     uploadForm.transcription_folder_id = form.transcription_folder_id;
     uploadForm.model = form.model;
     uploadForm.language = form.language;
@@ -471,15 +490,31 @@ const onFilesSelected = (e) => {
     uploadForm.post(route('transcriptions.store'), {
         preserveScroll: true,
         onSuccess: () => {
-            toast.success('Archivo(s) enviado(s) a transcripción.');
+            // El aviso de éxito lo manda el server (flash 'status'): otro acá lo duplicaba.
             uploadForm.reset('files');
-            if (uploadInput.value) uploadInput.value.value = '';
+            pendingUploads.value = [];
+            onDone?.();
         },
         onError: (errors) => {
             toast.error(errors['files.0'] || errors.files || 'No se pudo subir el archivo.');
-            if (uploadInput.value) uploadInput.value.value = '';
         },
     });
+};
+
+const submitting = computed(() => form.processing || uploadForm.processing);
+const hasSomethingToSend = computed(() => selectedFiles.value.length > 0 || pendingUploads.value.length > 0);
+
+const submit = () => {
+    if (submitting.value || ! hasSomethingToSend.value) return;
+
+    // Una visita de Inertia cancela a la que esté en curso, así que si hay
+    // audios subidos y de la biblioteca van uno detrás del otro, no a la vez.
+    const hasPaths = selectedFiles.value.length > 0;
+    if (pendingUploads.value.length) {
+        submitUploads(hasPaths ? () => submitPaths() : undefined);
+    } else {
+        submitPaths();
+    }
 };
 
 const addExistingOpen = ref(false);
@@ -1106,13 +1141,13 @@ const formatDate = (value) => {
                                         type="button"
                                         class="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-blue-400 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:text-gray-200 dark:hover:border-blue-500 dark:hover:text-blue-300"
                                         :disabled="uploadForm.processing"
-                                        title="Subir un archivo desde tu dispositivo (funciona en el servidor)"
+                                        title="Elegir audios de tu dispositivo. Se suben al tocar Enviar."
                                         @click="triggerUpload"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
                                         </svg>
-                                        {{ uploadForm.processing ? 'Subiendo…' : 'Subir archivo' }}
+                                        Agregar archivo
                                     </button>
                                 </div>
                                 <input
@@ -1124,7 +1159,7 @@ const formatDate = (value) => {
                                     @change="onFilesSelected"
                                 >
                                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    «Subir archivo» manda los audios apenas los elegís (no hace falta tocar Enviar).
+                                    Elegí los audios, revisá carpeta, modelo e idioma, y tocá Enviar.
                                     Hasta {{ formatBytes(uploadLimits.per_file) }} por archivo y {{ formatBytes(uploadLimits.per_request) }} por tanda.
                                 </p>
                                 <p
@@ -1197,9 +1232,13 @@ const formatDate = (value) => {
                             <button
                                 type="submit"
                                 class="inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                :disabled="form.processing || selectedFiles.length === 0"
+                                :disabled="submitting || ! hasSomethingToSend"
                             >
-                                Enviar
+                                <template v-if="uploadForm.processing">
+                                    Subiendo{{ uploadForm.progress ? ` ${uploadForm.progress.percentage}%` : '…' }}
+                                </template>
+                                <template v-else-if="form.processing">Enviando…</template>
+                                <template v-else>Enviar</template>
                             </button>
                         </div>
 
@@ -1216,9 +1255,29 @@ const formatDate = (value) => {
                         </label>
 
                         <ul
-                            v-if="selectedFiles.length"
+                            v-if="selectedFiles.length || pendingUploads.length"
                             class="mt-3 divide-y divide-gray-100 rounded-md border border-gray-200 dark:divide-gray-700 dark:border-gray-700"
                         >
+                            <li
+                                v-for="file in pendingUploads"
+                                :key="uploadKey(file)"
+                                class="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                            >
+                                <div class="min-w-0">
+                                    <p class="truncate font-medium text-gray-800 dark:text-gray-100">{{ file.name }}</p>
+                                    <p class="truncate text-xs text-gray-500 dark:text-gray-400">
+                                        {{ formatBytes(file.size) }} · se sube al tocar Enviar
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="shrink-0 text-xs text-rose-600 hover:underline disabled:opacity-40 dark:text-rose-400"
+                                    :disabled="uploadForm.processing"
+                                    @click="removePendingUpload(file)"
+                                >
+                                    Quitar
+                                </button>
+                            </li>
                             <li
                                 v-for="file in selectedFiles"
                                 :key="file.path"

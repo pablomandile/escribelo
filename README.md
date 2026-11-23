@@ -132,7 +132,7 @@ npm run dev                                       # en otra terminal
 
 1. Registrate (email + password o Google).
 2. Si no sos el primer usuario, esperá aprobación en `/account/pending`.
-3. Desde el dashboard cargás un audio de dos maneras: **Subir archivo** (upload HTTP — la única que funciona cuando la app corre en un server remoto) o **Elegir de la biblioteca** (referencia un archivo ya presente en el disco de la máquina que corre la app, sin duplicarlo).
+3. Desde el dashboard cargás un audio de dos maneras: **Agregar archivo** (upload HTTP — la única que funciona cuando la app corre en un server remoto) o **Elegir de la biblioteca** (referencia un archivo ya presente en el disco de la máquina que corre la app, sin duplicarlo). En los dos casos los audios quedan en una lista y recién se suben y encolan al tocar **Enviar**, con la carpeta, el modelo y el idioma elegidos en ese momento.
 4. Elegís modelo Whisper (`tiny`/`base`/`small`/`medium`/`large`/`large-v3`/`turbo`) e idioma. Un badge en el dashboard indica dónde se procesa (en esta máquina o en el worker remoto vía túnel, según el modo).
 5. Opcional: marcar "reducir ruido" para que el worker genere una copia denoised que podés escuchar, comparar y elegir si reemplaza al original.
 6. Cuando el estado pasa a `completed`, abrís la transcripción y podés:

@@ -161,7 +161,7 @@ class TranscriptionFileController extends Controller
             ProcessTranscriptionFile::dispatch($transcriptionFile);
         }
 
-        return back()->with('status', 'Archivos enviados a transcripcion.');
+        return back()->with('status', 'Archivos enviados a transcripción.');
     }
 
     public function storeFromPaths(Request $request): RedirectResponse
