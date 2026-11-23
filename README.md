@@ -213,16 +213,18 @@ Escenario: la app corre en un hosting (sin GPU) y el cómputo pesado corre en un
 Hosting (Laravel + MySQL + cron de cola)
    │  HTTPS  (Bearer REMOTE_WORKER_TOKEN)
    ▼
-https://xxxx.trycloudflare.com   ← cloudflared (quick tunnel) en la PC
+https://escribelo-gpu.bambudev.com.ar   ← túnel con nombre "pc-gpu" (servicio cloudflared en la PC)
    ▼
 FastAPI worker 127.0.0.1:8765    ← faster-whisper (GPU) + proxy a Ollama
 ```
 
-**En la PC (Windows):** correr dos procesos — el worker (`python -m uvicorn whisper_worker.api_server:app --host 127.0.0.1 --port 8765 --timeout-keep-alive 120`, con env `ESCRIBELO_REMOTE_TOKEN`, `OLLAMA_BASE_URL`, `OLLAMA_SUMMARY_MODEL`) y el túnel (`cloudflared tunnel --url http://localhost:8765`). El flag `--timeout-keep-alive 120` importa: debe superar los ~90s del pool de conexiones de cloudflared o aparecen 502 intermitentes.
+**En la PC (Windows):** el worker (`python -m uvicorn whisper_worker.api_server:app --host 127.0.0.1 --port 8765 --timeout-keep-alive 120`, con env `ESCRIBELO_REMOTE_TOKEN`, `OLLAMA_BASE_URL`, `OLLAMA_SUMMARY_MODEL`). El flag `--timeout-keep-alive 120` importa: debe superar los ~90s del pool de conexiones de cloudflared o aparecen 502 intermitentes.
 
-**En el server:** `.env` con `REMOTE_WORKER_TOKEN` (idéntico al del worker), `REMOTE_WORKER_MANAGE_LOCALLY=false`, `CLOUDFLARED_MANAGE_LOCALLY=false`; modo `host` en `/admin/settings`; y algo que procese la cola (en hosting compartido: cron cada minuto con `queue:work --stop-when-empty`).
+**El túnel** es un *named tunnel* de Cloudflare (`pc-gpu`, compartido con Lumora y DocBrainer) sobre el dominio `bambudev.com.ar`, cuyo DNS está en Cloudflare. Corre como servicio de Windows (`cloudflared`, arranque automático, modo token), así que no hay que lanzarlo a mano y su dirección **no cambia**. El hostname `escribelo-gpu.bambudev.com.ar → http://127.0.0.1:8765` se configura en el panel de Cloudflare (Zero Trust → Networks → Tunnels → `pc-gpu` → Public Hostnames), no en un `config.yml` local: el servicio toma la config del panel. La instalación del túnel está documentada en el README de `gpu_worker` de Lumora (sección 4).
 
-**La URL del túnel** (quick tunnel) cambia en cada reinicio de cloudflared. Por eso es editable en caliente desde `/admin/settings` → campo "URL del worker" (AppSetting `remote_worker_url`, pisa al `.env` sin recachear config ni SSH).
+**En el server:** `.env` con `REMOTE_WORKER_URL=https://escribelo-gpu.bambudev.com.ar`, `REMOTE_WORKER_TOKEN` (idéntico al del worker), `REMOTE_WORKER_MANAGE_LOCALLY=false`, `CLOUDFLARED_MANAGE_LOCALLY=false`; modo `host` en `/admin/settings`; y algo que procese la cola (en hosting compartido: cron cada minuto con `queue:work --stop-when-empty`).
+
+**URL del worker editable en caliente** desde `/admin/settings` → campo "URL del worker" (AppSetting `remote_worker_url`, pisa al `.env` sin recachear config ni SSH), o por `POST /worker/announce` con el Bearer del worker. Con el túnel fijo casi no hace falta; queda para el **plan B**: si el named tunnel se cae, un quick tunnel (`cloudflared tunnel --url http://localhost:8765`) da una URL `*.trycloudflare.com` random que cambia en cada reinicio y se carga ahí.
 
 **Por qué streaming:** Cloudflare corta conexiones cuyo origen tarda ~100s en responder. `/transcribe` y `/summarize` responden NDJSON en streaming (heartbeats mientras el trabajo avanza, resultado en la última línea), así una transcripción de una hora o un resumen con el modelo frío no chocan contra ese límite. El server además reintenta automáticamente los 502/503/504 transitorios del túnel.
 
@@ -232,7 +234,9 @@ FastAPI worker 127.0.0.1:8765    ← faster-whisper (GPU) + proxy a Ollama
 
 **`Ollama devolvió un error (404)` al resumir.** El queue worker tiene la config vieja en memoria. `php artisan queue:restart` y volver a lanzarlo (no se relanza solo con `--tries=1` sin supervisor).
 
-**502 `origin_bad_gateway` de Cloudflare al usar el túnel.** Suele ser transitorio (típico justo después de reiniciar el worker: cloudflared reusa conexiones keep-alive muertas). El server ya reintenta solo; si persiste, verificar que el worker corra con `--timeout-keep-alive 120` y que la URL del túnel en `/admin/settings` sea la vigente (cambia en cada reinicio de cloudflared).
+**502 `origin_bad_gateway` de Cloudflare al usar el túnel.** Suele ser transitorio (típico justo después de reiniciar el worker: cloudflared reusa conexiones keep-alive muertas). El server ya reintenta solo; si persiste, verificar que el worker corra con `--timeout-keep-alive 120` y que la URL del worker en `/admin/settings` sea `https://escribelo-gpu.bambudev.com.ar` (si quedó una `*.trycloudflare.com` de un quick tunnel viejo, ya no existe).
+
+**502/530 desde afuera, pero el worker responde en `127.0.0.1:8765`.** El servicio `cloudflared` está caído (`Get-Service cloudflared`; levantarlo con `net start cloudflared` como administrador) o falta el hostname en el panel de Cloudflare.
 
 **Whisper falla con `CUDA out of memory`.** Bajá a un modelo más chico (`small` o `medium`) o forzá CPU.
 

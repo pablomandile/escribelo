@@ -4,7 +4,7 @@ import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import { Head } from '@inertiajs/vue3';
 
 const EMAIL = 'pablo.mandile@gmail.com';
-const WEBSITE = 'https://bioinfo.pablomandile.com.ar/pablo';
+const WEBSITE = 'https://bioinfo.bambudev.com.ar/pablo';
 </script>
 
 <template>

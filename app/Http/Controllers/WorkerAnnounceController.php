@@ -10,13 +10,16 @@ use Illuminate\Support\Facades\Log;
 /**
  * El worker (o el script que lo arranca) avisa por dónde encontrarlo.
  *
- * El túnel rápido de Cloudflare sortea un hostname nuevo en cada arranque, así
- * que hasta ahora había que copiar la URL a mano en /admin/settings. Si uno se
- * olvidaba, el server seguía apuntando al túnel viejo —que ya no resuelve— y
- * las transcripciones quedaban en "Esperando worker" reintentando para siempre.
+ * Nació para el túnel rápido de Cloudflare, que sortea un hostname nuevo en cada
+ * arranque: si uno se olvidaba de copiar la URL en /admin/settings, el server
+ * seguía apuntando al túnel viejo —que ya no resuelve— y las transcripciones
+ * quedaban en "Esperando worker" reintentando para siempre.
  *
- * Esto lo automatiza: escribelo-funcionando.bat levanta el túnel, lee la URL y
- * la manda acá. Escribe el mismo AppSetting que el panel de admin.
+ * Desde 2026-11 el worker se publica por un named tunnel con URL fija
+ * (https://escribelo-gpu.bambudev.com.ar). escribelo-funcionando.bat la sigue
+ * anunciando en cada arranque: es idempotente y corrige cualquier URL vieja
+ * pegada a mano. El quick tunnel queda como plan B y usa el mismo camino.
+ * Escribe el mismo AppSetting que el panel de admin.
  *
  * Auth: el mismo Bearer token que ya comparten server y worker. Quien lo tenga
  * puede redirigir a dónde va el audio, así que vale lo mismo que el token en sí:

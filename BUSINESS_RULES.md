@@ -271,7 +271,7 @@ El audio físico y la transcripción tienen ciclos de vida independientes: se pu
   - `ProcessTranscriptionFile` usa `RemoteApiTranscriber`.
   - `SummarizeTranscription` usa `RemoteSummarizer` (siempre; la preferencia Ollama/Groq del usuario no aplica).
   - Si el worker remoto cae, los jobs entran en `waiting_for_worker` y se reintentan cada 60s.
-- **URL del worker remoto**: editable desde `/admin/settings` (`PATCH /admin/settings/remote-worker-url`, AppSetting `remote_worker_url`). Pisa al `.env` sin recachear config — pensado para el quick tunnel de Cloudflare, cuya URL cambia en cada reinicio de `cloudflared`. Vaciar el campo = volver al `.env`.
+- **URL del worker remoto**: editable desde `/admin/settings` (`PATCH /admin/settings/remote-worker-url`, AppSetting `remote_worker_url`). Pisa al `.env` sin recachear config. En producción la URL es fija (`https://escribelo-gpu.bambudev.com.ar`, named tunnel de Cloudflare); el override en caliente queda para el plan B de un quick tunnel, cuya URL cambia en cada reinicio de `cloudflared`. El script de arranque de la PC también la confirma por `POST /worker/announce`. Vaciar el campo = volver al `.env`.
 - **Paneles de procesos**: los bloques de start/stop del worker Python y de cloudflared en `/admin/settings` solo tienen sentido en la máquina que corre esos procesos; en hosting se ocultan con `REMOTE_WORKER_MANAGE_LOCALLY=false` y `CLOUDFLARED_MANAGE_LOCALLY=false`.
 - ⚠️ Después de cambiar el modo (o cualquier config) **hay que reiniciar el queue worker**, porque tiene la config booteada en memoria.
 

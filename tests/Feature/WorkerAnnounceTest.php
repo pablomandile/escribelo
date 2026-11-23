@@ -53,6 +53,24 @@ class WorkerAnnounceTest extends TestCase
         $this->assertSame('https://tunel-nuevo.trycloudflare.com', AppSetting::remoteWorkerUrl());
     }
 
+    public function test_acepta_el_hostname_fijo_del_tunel_con_nombre(): void
+    {
+        // Desde 2026-11 la URL normal es la del named tunnel, no una de
+        // trycloudflare: el announce no puede restringir el dominio.
+        AppSetting::set('remote_worker_url', 'https://tunel-viejo.trycloudflare.com');
+
+        $this->announce(['url' => 'https://escribelo-gpu.bambudev.com.ar'])
+            ->assertOk()
+            ->assertJson(['changed' => true]);
+
+        $this->assertSame('https://escribelo-gpu.bambudev.com.ar', AppSetting::remoteWorkerUrl());
+
+        // Anunciarla de nuevo en cada arranque es idempotente.
+        $this->announce(['url' => 'https://escribelo-gpu.bambudev.com.ar'])
+            ->assertOk()
+            ->assertJson(['changed' => false]);
+    }
+
     public function test_le_saca_la_barra_final(): void
     {
         // cloudflared imprime la URL sin barra, pero si alguien la pega con una

@@ -47,7 +47,7 @@ Hay dos **modos de operación** controlados por `app_settings.mode`:
 
 El selector de modo está en el admin panel y se persiste en la tabla `app_settings`. El helper [escribelo_mode()](app/helpers.php) lo lee con caché forever (invalidada al `set`). `HandleInertiaRequests` comparte el modo como prop `appMode` — el dashboard lo usa para mostrar un badge de dónde se procesa cada transcripción.
 
-En modo host, la URL efectiva del worker la resuelve [AppSetting::remoteWorkerUrl()](app/Models/AppSetting.php): el AppSetting `remote_worker_url` (editable desde `/admin/settings`, pensado para el quick tunnel de Cloudflare cuya URL cambia en cada reinicio) pisa al `.env`; si está vacío se usa `REMOTE_WORKER_URL`. Los paneles de start/stop de worker/cloudflared se ocultan con `REMOTE_WORKER_MANAGE_LOCALLY=false` / `CLOUDFLARED_MANAGE_LOCALLY=false` (hosting que solo consume la URL remota).
+En modo host, la URL efectiva del worker la resuelve [AppSetting::remoteWorkerUrl()](app/Models/AppSetting.php): el AppSetting `remote_worker_url` (editable desde `/admin/settings` o por `POST /worker/announce`) pisa al `.env`; si está vacío se usa `REMOTE_WORKER_URL`. En producción la URL es fija, `https://escribelo-gpu.bambudev.com.ar`: un named tunnel de Cloudflare (`pc-gpu`, servicio de Windows en la PC de la GPU, compartido con Lumora). El override en caliente queda para el plan B de un quick tunnel `*.trycloudflare.com`, cuya URL cambia en cada reinicio. Los paneles de start/stop de worker/cloudflared se ocultan con `REMOTE_WORKER_MANAGE_LOCALLY=false` / `CLOUDFLARED_MANAGE_LOCALLY=false` (hosting que solo consume la URL remota).
 
 ---
 
@@ -324,7 +324,7 @@ queued ──► enhancing (si clean_audio) ──► processing ──► compl
 | Ollama | POST `{OLLAMA_BASE_URL}/api/chat` con `format: json` | n/a | resumen, modo `local` |
 | Groq | POST `https://api.groq.com/openai/v1/chat/completions` | Bearer `GROQ_APIKEY` | resumen, opt-in por usuario |
 | Google OAuth | Socialite → redirect a Google → callback | OAuth 2.0 | login |
-| Cloudflare Tunnel | binario `cloudflared` administrado vía `CloudflareTunnelManager` | tokens en `~/.cloudflared/config.yml` | modo `host` |
+| Cloudflare Tunnel | producción: named tunnel `pc-gpu` como servicio de Windows en la PC (hostname `escribelo-gpu.bambudev.com.ar`, configurado en el panel de Cloudflare). Local: binario `cloudflared` administrado vía `CloudflareTunnelManager` | servicio: token de Cloudflare; local: `~/.cloudflared/config.yml` | modo `host` |
 
 ---
 

@@ -687,13 +687,14 @@ onBeforeUnmount(() => {
                         URL del worker (túnel Cloudflare)
                     </label>
                     <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                        Pegá la URL del quick tunnel cada vez que lo reinicies. Se guarda en la app y pisa el <code>.env</code> (sin recachear).
+                        La fija es <code>https://escribelo-gpu.bambudev.com.ar</code> (túnel con nombre, no cambia).
+                        Pegá otra solo si usás un quick tunnel de emergencia. Se guarda en la app y pisa el <code>.env</code> (sin recachear).
                     </p>
                     <div class="mt-2 flex flex-col gap-2 sm:flex-row">
                         <input
                             v-model="remoteUrlDraft"
                             type="url"
-                            placeholder="https://xxxx.trycloudflare.com"
+                            placeholder="https://escribelo-gpu.bambudev.com.ar"
                             class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
                             @keydown.enter.prevent="submitRemoteUrl"
                         >
