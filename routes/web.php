@@ -59,6 +59,8 @@ Route::middleware(['auth', 'approved'])->group(function () {
     Route::post('/transcriptions/{transcriptionFile}/retranscribe', [TranscriptionFileController::class, 'retranscribe'])->whereNumber('transcriptionFile')->name('transcriptions.retranscribe');
     Route::post('/transcriptions/{transcriptionFile}/summary', [TranscriptionFileController::class, 'summarize'])->whereNumber('transcriptionFile')->name('transcriptions.summary');
     Route::delete('/transcriptions/{transcriptionFile}/summary', [TranscriptionFileController::class, 'cancelSummary'])->whereNumber('transcriptionFile')->name('transcriptions.summary.cancel');
+    Route::post('/transcriptions/{transcriptionFile}/translation', [TranscriptionFileController::class, 'translate'])->whereNumber('transcriptionFile')->name('transcriptions.translation');
+    Route::delete('/transcriptions/{transcriptionFile}/translation/{language}', [TranscriptionFileController::class, 'cancelTranslation'])->whereNumber('transcriptionFile')->whereIn('language', ['es', 'en', 'pt'])->name('transcriptions.translation.cancel');
     Route::patch('/transcriptions/{transcriptionFile}/text', [TranscriptionFileController::class, 'updateText'])->whereNumber('transcriptionFile')->name('transcriptions.text.update');
     Route::delete('/transcriptions/{transcriptionFile}/text', [TranscriptionFileController::class, 'restoreText'])->whereNumber('transcriptionFile')->name('transcriptions.text.restore');
     Route::delete('/transcriptions/{transcriptionFile}', [TranscriptionFileController::class, 'destroy'])->whereNumber('transcriptionFile')->name('transcriptions.destroy');

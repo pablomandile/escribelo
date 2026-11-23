@@ -10,6 +10,8 @@ Endpoints (all require Authorization: Bearer ${ESCRIBELO_REMOTE_TOKEN}):
                             returns NDJSON streaming response
     POST /summarize       → JSON { text, language, model }
                             returns JSON { summary, key_points, tokens_used, model }
+    POST /translate       → JSON { text, system, options }
+                            returns NDJSON; last line { result: { text, tokens_used, model } }
 
 Run with:
     set ESCRIBELO_REMOTE_TOKEN=...
@@ -294,6 +296,89 @@ async def summarize(payload: dict, authorization: Optional[str] = Header(None)) 
     # NDJSON con heartbeats (mismo patrón que /transcribe): Cloudflare corta la
     # conexión si el origen tarda ~100s en responder, así que mandamos la cabecera
     # y un latido cada 10s mientras Ollama trabaja; la última línea trae "result".
+    task = asyncio.create_task(call_ollama())
+
+    async def event_stream():
+        try:
+            while True:
+                done, _ = await asyncio.wait({task}, timeout=10.0)
+                if done:
+                    break
+                yield json.dumps({"status": "working"}) + "\n"
+
+            try:
+                result = task.result()
+            except Exception as exc:
+                yield json.dumps({"error": str(exc)}, ensure_ascii=False) + "\n"
+                return
+
+            yield json.dumps({"result": result}, ensure_ascii=False) + "\n"
+        finally:
+            if not task.done():
+                task.cancel()
+
+    return StreamingResponse(event_stream(), media_type="application/x-ndjson")
+
+
+# ---------------------------------------------------------------------------
+# Translate — traduce UN trozo con Ollama. El prompt y las opciones los arma el
+# server (App\Services\Translator\TranslationPrompt) para que la traducción
+# local y la remota sean idénticas; acá solo se ejecuta. Mismo NDJSON con
+# latidos que /summarize, y la última línea trae "result" o "error".
+# ---------------------------------------------------------------------------
+
+_TRANSLATE_OPTION_KEYS = ("temperature", "repeat_penalty", "top_p", "top_k", "num_predict", "num_ctx")
+
+
+@app.post("/translate")
+async def translate(payload: dict, authorization: Optional[str] = Header(None)) -> StreamingResponse:
+    _check_token(authorization)
+
+    text = (payload.get("text") or "").strip()
+    system = (payload.get("system") or "").strip()
+    if not text or not system:
+        raise HTTPException(status_code=400, detail="Missing text or system")
+
+    model = os.environ.get("OLLAMA_TRANSLATE_MODEL") or os.environ.get("OLLAMA_SUMMARY_MODEL", "gemma4:e4b")
+
+    options = {"temperature": 0.2, "repeat_penalty": 1.1, "top_p": 0.9, "num_predict": 4096, "num_ctx": 8192}
+    for key in _TRANSLATE_OPTION_KEYS:
+        value = (payload.get("options") or {}).get(key)
+        if isinstance(value, (int, float)):
+            options[key] = value
+
+    body = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": text},
+        ],
+        "stream": False,
+        "options": options,
+        "keep_alive": "30m",
+    }
+
+    async def call_ollama() -> dict:
+        try:
+            async with httpx.AsyncClient(timeout=600.0) as client:
+                r = await client.post(_ollama_url("/api/chat"), json=body)
+        except Exception as exc:
+            raise RuntimeError(f"Ollama unreachable: {exc}")
+
+        if r.status_code != 200:
+            raise RuntimeError(f"Ollama HTTP {r.status_code}: {r.text}")
+
+        data = r.json()
+        content = ((data.get("message") or {}).get("content") or "").strip()
+        if not content:
+            raise RuntimeError("Ollama returned an empty translation")
+
+        return {
+            "text": content,
+            "tokens_used": int(data.get("prompt_eval_count", 0)) + int(data.get("eval_count", 0)),
+            "model": model,
+        }
+
     task = asyncio.create_task(call_ollama())
 
     async def event_stream():

@@ -126,4 +126,17 @@ return [
         'table' => 'failed_jobs',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Tiempo de vida del proceso de queue:work (segundos)
+    |--------------------------------------------------------------------------
+    |
+    | En Hostinger, hPanel mata el cron de la cola a los 1800 s. Los trabajos que
+    | se pueden partir (la traducción) miran este presupuesto y, si no les
+    | alcanza, siguen en un proceso nuevo. 0 = sin límite (local, supervisor).
+    |
+    */
+
+    'process_time_budget' => (int) env('QUEUE_PROCESS_TIME_BUDGET', 0),
+
 ];

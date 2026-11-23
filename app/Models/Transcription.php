@@ -85,4 +85,9 @@ class Transcription extends Model
     {
         return $this->hasMany(TranscriptionSegment::class)->orderBy('position');
     }
+
+    public function translations(): HasMany
+    {
+        return $this->hasMany(TranscriptionTranslation::class);
+    }
 }

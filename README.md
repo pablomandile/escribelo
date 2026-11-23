@@ -67,6 +67,8 @@ Editar `.env`:
 | `WHISPER_TIMEOUT` | Timeout en segundos del subproceso (default `1800`) |
 | `OLLAMA_BASE_URL` | URL de Ollama (default `http://localhost:11434`) |
 | `OLLAMA_SUMMARY_MODEL` | Modelo de resumen (default `gemma4:26b`) |
+| `OLLAMA_TRANSLATE_MODEL` | Modelo de traducción (si falta, usa `OLLAMA_SUMMARY_MODEL`). En modo host lo define el entorno del worker de la PC |
+| `QUEUE_PROCESS_TIME_BUDGET` | Segundos de vida del proceso de `queue:work` (en Hostinger, `1500`: hPanel lo mata a los 1800). La traducción larga sigue en un proceso nuevo en vez de morir. `0` = sin límite |
 | `GROQ_APIKEY` | API key (opcional) si vas a usar Groq |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | OAuth con Google |
 | `REMOTE_WORKER_URL`, `REMOTE_WORKER_TOKEN` | Solo si vas a usar modo "host". La URL puede pisarse después desde `/admin/settings` sin tocar el `.env` |
@@ -141,6 +143,7 @@ npm run dev                                       # en otra terminal
    - **Re-transcribir** con otro modelo (p.ej. si `small` no alcanzó, reintentar con `medium`) — pisa la transcripción anterior.
    - Renombrar el archivo inline.
    - Generar un resumen estructurado en markdown (Ollama o Groq según preferencia; en modo host lo hace el worker remoto).
+   - **Traducir** la transcripción a español, inglés o portugués con Gemma 4 en Ollama (local, o el worker remoto en modo host). Se traduce de a partes y se ve el avance; queda guardada una traducción por idioma.
    - Descargar TXT, SRT o PDF.
    - Mover a una carpeta.
    - **Borrar el audio** del server para liberar espacio — la transcripción y el resumen se conservan, y podés **resubir el archivo** más adelante para volver a reproducirlo o re-transcribir.
@@ -226,7 +229,7 @@ FastAPI worker 127.0.0.1:8765    ← faster-whisper (GPU) + proxy a Ollama
 
 **URL del worker editable en caliente** desde `/admin/settings` → campo "URL del worker" (AppSetting `remote_worker_url`, pisa al `.env` sin recachear config ni SSH), o por `POST /worker/announce` con el Bearer del worker. Con el túnel fijo casi no hace falta; queda para el **plan B**: si el named tunnel se cae, un quick tunnel (`cloudflared tunnel --url http://localhost:8765`) da una URL `*.trycloudflare.com` random que cambia en cada reinicio y se carga ahí.
 
-**Por qué streaming:** Cloudflare corta conexiones cuyo origen tarda ~100s en responder. `/transcribe` y `/summarize` responden NDJSON en streaming (heartbeats mientras el trabajo avanza, resultado en la última línea), así una transcripción de una hora o un resumen con el modelo frío no chocan contra ese límite. El server además reintenta automáticamente los 502/503/504 transitorios del túnel.
+**Por qué streaming:** Cloudflare corta conexiones cuyo origen tarda ~100s en responder. `/transcribe`, `/summarize` y `/translate` responden NDJSON en streaming (heartbeats mientras el trabajo avanza, resultado en la última línea), así una transcripción de una hora o un resumen con el modelo frío no chocan contra ese límite. El server además reintenta automáticamente los 502/503/504 transitorios del túnel.
 
 ---
 

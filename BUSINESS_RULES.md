@@ -142,6 +142,14 @@ processing
 
 ---
 
+## Traducción
+
+- Idiomas: español, inglés y portugués (`TranscriptionTranslation::LANGUAGES`). No se ofrece traducir al idioma del audio (el botón queda deshabilitado).
+- Se traduce el texto vigente (`effectiveText()`: con las ediciones del usuario, si hay).
+- Una traducción por idioma: traducir a otro idioma no pisa la anterior; retraducir al mismo, sí. No se puede encolar otra vez un idioma que ya está en curso.
+- Modelo: Gemma 4 en Ollama (`OLLAMA_TRANSLATE_MODEL`, o `OLLAMA_SUMMARY_MODEL`). En modo host corre en la PC por el worker (`/translate`).
+- Cancelar corta después del trozo en curso; lo ya traducido queda guardado. Si falla, también queda lo traducido hasta ahí junto con el error.
+
 ## 6. Provider de resumen
 
 - Cada usuario tiene un setting `summary_provider` en `users.settings` JSON (default `'groq'`).

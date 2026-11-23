@@ -48,6 +48,9 @@ return [
     'ollama' => [
         'base_url' => env('OLLAMA_BASE_URL', 'http://localhost:11434'),
         'summary_model' => env('OLLAMA_SUMMARY_MODEL', 'gemma4:e4b'),
+        // Modo local. En modo host manda OLLAMA_TRANSLATE_MODEL (o, si no está,
+        // OLLAMA_SUMMARY_MODEL) del worker de la PC.
+        'translate_model' => env('OLLAMA_TRANSLATE_MODEL', env('OLLAMA_SUMMARY_MODEL', 'gemma4:e4b')),
     ],
 
     'remote_worker' => [

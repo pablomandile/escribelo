@@ -692,7 +692,7 @@ class TranscriptionFileController extends Controller
     {
         abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
 
-        $transcriptionFile->load(['folder', 'transcription.segments']);
+        $transcriptionFile->load(['folder', 'transcription.segments', 'transcription.translations']);
 
         $user = $request->user();
         $usage = \App\Models\GroqUsage::todayFor($user->id);
@@ -719,8 +719,10 @@ class TranscriptionFileController extends Controller
             ],
             'ollamaConfig' => [
                 'model' => config('services.ollama.summary_model'),
+                'translate_model' => config('services.ollama.translate_model'),
                 'base_url' => config('services.ollama.base_url'),
             ],
+            'translationLanguages' => \App\Models\TranscriptionTranslation::LANGUAGES,
         ]);
     }
 
@@ -883,6 +885,101 @@ class TranscriptionFileController extends Controller
         return back()->with('success', 'Resumen cancelado.');
     }
 
+    /**
+     * Encola la traducción de la transcripción al idioma elegido. Hay una por
+     * idioma: retraducir al mismo idioma reemplaza la anterior, otro idioma no.
+     */
+    public function translate(Request $request, TranscriptionFile $transcriptionFile): RedirectResponse
+    {
+        abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
+
+        $validated = $request->validate([
+            'language' => ['required', 'string', 'in:'.implode(',', array_keys(\App\Models\TranscriptionTranslation::LANGUAGES))],
+        ]);
+
+        $transcription = $transcriptionFile->transcription;
+        if (! $transcription || trim($transcription->effectiveText()) === '') {
+            return back()->withErrors(['translation' => 'La transcripción aún no tiene texto disponible.']);
+        }
+
+        if ($this->effectiveSummaryProvider() === 'ollama' && ! $this->isOllamaAvailable()) {
+            return back()->withErrors(['translation' => 'Ollama no responde en '.config('services.ollama.base_url').'. Verificá que esté corriendo.']);
+        }
+
+        $translation = $transcription->translations()->firstOrNew(['language' => $validated['language']]);
+        if ($translation->exists && $translation->isRunning()) {
+            return back()->withErrors(['translation' => 'Esa traducción ya está en curso.']);
+        }
+
+        $translation->fill([
+            'status' => 'queued',
+            'text' => null,
+            'metadata' => null,
+            'generated_at' => null,
+        ])->save();
+
+        \App\Jobs\TranslateTranscription::dispatch($translation);
+
+        return back()->with('status', 'Traducción en cola.');
+    }
+
+    public function cancelTranslation(Request $request, TranscriptionFile $transcriptionFile, string $language): RedirectResponse
+    {
+        abort_unless($transcriptionFile->user_id === $request->user()->id, 403);
+
+        $translation = $transcriptionFile->transcription?->translations()->where('language', $language)->first();
+        if (! $translation || ! $translation->isRunning()) {
+            return back();
+        }
+
+        // El job mira el estado entre trozo y trozo: al verlo en 'failed' corta.
+        $translation->update([
+            'status' => 'failed',
+            'metadata' => array_merge($translation->metadata ?? [], [
+                'error' => 'Cancelado manualmente.',
+                'cancelled_at' => now()->toIso8601String(),
+            ]),
+        ]);
+
+        // Si todavía no arrancó, lo sacamos de la cola (best-effort). Se compara
+        // ya decodificado: en el payload JSON las comillas del comando serializado
+        // van escapadas y un LIKE con '"id";i:N;' no encuentra nada.
+        try {
+            $needle = 's:2:"id";i:'.$translation->id.';';
+            $ids = \Illuminate\Support\Facades\DB::table('jobs')
+                ->where('payload', 'like', '%TranslateTranscription%')
+                ->whereNull('reserved_at')
+                ->get(['id', 'payload'])
+                ->filter(fn ($job) => str_contains((string) (json_decode($job->payload, true)['data']['command'] ?? ''), $needle))
+                ->pluck('id');
+            \Illuminate\Support\Facades\DB::table('jobs')->whereIn('id', $ids)->delete();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Cancel translation: queue cleanup failed', [
+                'translation_id' => $translation->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
+
+        return back()->with('success', 'Traducción cancelada.');
+    }
+
+    private function serializeTranslations(\App\Models\Transcription $transcription): array
+    {
+        return $transcription->translations
+            ->mapWithKeys(fn (\App\Models\TranscriptionTranslation $t) => [$t->language => [
+                'language' => $t->language,
+                'text' => $t->text,
+                'status' => $t->status,
+                'error' => $t->metadata['error'] ?? null,
+                'model' => $t->metadata['model'] ?? null,
+                'progress' => $t->metadata['progress'] ?? null,
+                'elapsed_seconds' => $t->metadata['elapsed_seconds'] ?? null,
+                'generated_at' => $t->generated_at?->toIso8601String(),
+                'updated_at' => $t->updated_at?->toIso8601String(),
+            ]])
+            ->all();
+    }
+
     private function serializeFile(TranscriptionFile $file, bool $includeSegments = false, bool $includeAudioMetadata = false): array
     {
         // Disponibilidad del audio: ¿existe el archivo físico en este server? Las
@@ -953,6 +1050,8 @@ class TranscriptionFileController extends Controller
                     ? ($file->transcription->summary_metadata['elapsed_seconds'] ?? null)
                     : null,
                 'summary_generated_at' => $file->transcription->summary_generated_at?->toIso8601String(),
+                // Solo en la vista detalle (la que trae los segmentos): el listado no las usa.
+                'translations' => $includeSegments ? $this->serializeTranslations($file->transcription) : [],
                 'segments_count' => count($file->transcription->effectiveSegments() ?? []),
                 'segments' => $includeSegments
                     ? collect($file->transcription->effectiveSegments())->map(fn ($segment, $i) => [
